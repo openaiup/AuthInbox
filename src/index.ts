@@ -27,34 +27,34 @@ export default {
 		const FrontEndAdminPassword = env.FrontEndAdminPassword;
 
 		// 提取 Authorization 头
-		const authHeader = request.headers.get('Authorization');
+		// const authHeader = request.headers.get('Authorization');
 
 		// 如果没有 Authorization 头，提示进行身份验证
-		if (!authHeader) {
-			return new Response('Unauthorized', {
-				status: 401,
-				headers: {
-					'WWW-Authenticate': 'Basic realm="User Visible Realm"',
-				},
-			});
-		}
+		// if (!authHeader) {
+		// 	return new Response('Unauthorized', {
+		// 		status: 401,
+		// 		headers: {
+		// 			'WWW-Authenticate': 'Basic realm="User Visible Realm"',
+		// 		},
+		// 	});
+		// }
 
 		// 检查 Authorization 头是否使用 Basic 认证
-		if (!authHeader.startsWith('Basic ')) {
-			return new Response('Unauthorized', {
-				status: 401,
-				headers: {
-					'WWW-Authenticate': 'Basic realm="User Visible Realm"',
-				},
-			});
-		}
+		// if (!authHeader.startsWith('Basic ')) {
+		// 	return new Response('Unauthorized', {
+		// 		status: 401,
+		// 		headers: {
+		// 			'WWW-Authenticate': 'Basic realm="User Visible Realm"',
+		// 		},
+		// 	});
+		// }
 
 		// 解码 base64 编码的凭据
-		const base64Credentials = authHeader.substring('Basic '.length);
-		const decodedCredentials = atob(base64Credentials);
+		// const base64Credentials = authHeader.substring('Basic '.length);
+		// const decodedCredentials = atob(base64Credentials);
 
 		// 将凭据分割为用户名和密码
-		const [username, password] = decodedCredentials.split(':');
+		// const [username, password] = decodedCredentials.split(':');
 
 		// 验证凭据
 		// if (
