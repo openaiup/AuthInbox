@@ -57,17 +57,17 @@ export default {
 		const [username, password] = decodedCredentials.split(':');
 
 		// 验证凭据
-		if (
-			username !== FrontEndAdminID ||
-			password !== FrontEndAdminPassword
-		) {
-			return new Response('Unauthorized', {
-				status: 401,
-				headers: {
-					'WWW-Authenticate': 'Basic realm="User Visible Realm"',
-				},
-			});
-		}
+		// if (
+		// 	username !== FrontEndAdminID ||
+		// 	password !== FrontEndAdminPassword
+		// ) {
+		// 	return new Response('Unauthorized', {
+		// 		status: 401,
+		// 		headers: {
+		// 			'WWW-Authenticate': 'Basic realm="User Visible Realm"',
+		// 		},
+		// 	});
+		// }
 
 		try {
 			const { results } = await env.DB.prepare(
