@@ -7,7 +7,7 @@
 不想在主邮箱中收到广告和垃圾邮件？想要多个备用邮箱用于注册服务和网站？试试这个吧！
 
 ![框架](https://github.com/user-attachments/assets/f2ea1ef1-b500-4e47-88ba-a00d19f99595)
-
+1
 ---
 
 ## 目录 📑
