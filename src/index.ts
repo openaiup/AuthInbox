@@ -104,7 +104,7 @@ export default {
                         <th>To</th>
                         <th>Topic</th>
                         <th>Code/Link</th>
-                        <th>发送时间（十分钟内有效）</th>
+                        <th>发送时间（十分钟内有效，超时请点击重新发送）</th>
                     </tr>
                 `)
 				.replace('{{DATA}}', dataHtml);
