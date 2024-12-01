@@ -104,7 +104,7 @@ export default {
                         <th>To</th>
                         <th>Topic</th>
                         <th>Code/Link</th>
-                        <th>Receive Time (GMT)</th>
+                        <th>发送时间（十分钟内有效）</th>
                     </tr>
                 `)
 				.replace('{{DATA}}', dataHtml);
