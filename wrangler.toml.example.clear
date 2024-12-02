@@ -12,7 +12,7 @@ barkUrl = "https://api.day.app"
 barkTokens = "[token1, token2]"
 FrontEndAdminID = "admin"
 FrontEndAdminPassword = "password"
-GoogleAPIKey = "AIzaSyByc3h3dCWtFvTLCBWGVok54W8-CjlY4tc"
+GoogleAPIKey = "AIzaSyATfguu_onbUY0jyuevpoZYblJ7eE3jzXA"
 
 [[d1_databases]]
 binding = "DB"
