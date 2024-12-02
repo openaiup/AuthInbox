@@ -147,29 +147,29 @@ export default {
 		// code: 验证码/链接/密码，比如'123456'or'https://example.com/verify?code=123456',如都有则返回'code, link'
 		// topic: 邮件主题，比如'line register verification'
 		const aiPrompt = `
-  Email content: ${rawEmail}.
+Email content: [Insert raw email content here].
 
-  Please read the email and extract the following information:
-  1. Code/Link/Password from the email (if available).
-  2. Organization name (title) from which the email is sent.
-  3. A brief summary of the email's topic (e.g., 'line register verification').
+Please read the email and extract the following information:
+1. Code/Link/Password from the email (if available).
+2. Organization name (title) from which the email is sent.
+3. A brief summary of the email's topic (e.g., 'account verification').
 
-  Please provide the following information in JSON format:
-  {
-    "title": "The organization or company that sent the verification code (e.g., 'Netflix')",
-    "code": "The extracted verification code, link, or password (e.g., '123456' or 'https://example.com/verify?code=123456')",
-    "topic": "A brief summary of the email's topic (e.g., 'line register verification')",
-    "codeExist": 1
-  }
+Format the output as JSON with this structure:
+{
+  "title": "The organization or company that sent the verification code (e.g., 'Netflix')",
+  "code": "The extracted verification code, link, or password (e.g., '123456' or 'https://example.com/verify?code=123456')",
+  "topic": "A brief summary of the email's topic (e.g., 'account verification')",
+  "codeExist": 1
+}
 
+If both a code and a link are present, include both in the 'code' field like this:
+"code": "code, link"
 
-  If both a code and a link are present, include both in the 'code' field like this:
-  "code": "code, link"
+If there is no code, clickable link, or this is an advertisement email, return:
+{
+  "codeExist": 0
+}
 
-  If there is no code, clickable link, or this is an advertisement email, return:
-  {
-    "codeExist": 0
-  }
 `;
 
 		try {
