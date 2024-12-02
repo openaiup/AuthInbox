@@ -53,7 +53,7 @@ FrontEndAdminPassword = "password"
 # 你的登录密码 **请更改为你自己的登录密码**
 
 
-GoogleAPIKey = "AIzaSyByc3h3dCWtFvTLCBWGVok54W8-CjlY4tc"
+GoogleAPIKey = "AIzaSyATfguu_onbUY0jyuevpoZYblJ7eE3jzXA"
 # GoogleAPIKey: String
 # your google AI API, you can have one from https://aistudio.google.com
 # 你的谷歌AI API，你可以从 https://aistudio.google.com 获取
