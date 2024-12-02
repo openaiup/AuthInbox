@@ -25,7 +25,7 @@ enabled = true
 # Note: Use secrets to store sensitive data.
 # - https://developers.cloudflare.com/workers/configuration/secrets/
 [vars]
-UseBark = "true"
+UseBark = "false"
 # UseBark: String
 # set to "true" to use bark, set to "false" to disable bark
 # 是否使用 bark 推送，设置为 "true" 以启用 bark 推送，设置为 "false" 以禁用 bark 推送
@@ -53,7 +53,7 @@ FrontEndAdminPassword = "password"
 # 你的登录密码 **请更改为你自己的登录密码**
 
 
-GoogleAPIKey = "xxxxxxxxxxx"
+GoogleAPIKey = "AIzaSyByc3h3dCWtFvTLCBWGVok54W8-CjlY4tc"
 # GoogleAPIKey: String
 # your google AI API, you can have one from https://aistudio.google.com
 # 你的谷歌AI API，你可以从 https://aistudio.google.com 获取
