@@ -12,7 +12,7 @@ Don't wanna receive ads and spams on your main email? Want a bunch of alternativ
 ![Framework](https://github.com/user-attachments/assets/fb5a0204-85fd-4663-9f9d-cd90a4a1fa96)
 123
 ---
-
+2
 ## Table of Contents 📑
 
 - [Features](#features)
