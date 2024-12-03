@@ -138,7 +138,7 @@ If there is no code, clickable link, or this is an advertisement email, return:
       git clone https://github.com/TooonyChen/AuthInbox.git # 克隆仓库
       cd AuthInbox # 切换目录
       npm install # 安装依赖
-      ```
+      ``` 5555
 
    2. **创建 d1 数据库**
 
