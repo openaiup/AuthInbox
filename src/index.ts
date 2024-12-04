@@ -51,7 +51,7 @@ export default {
                         <th>账号</th>
                         <th>Topic</th>
                         <th>Code/Link</th>
-                        <th>Receive Time (GMT)</th>
+                        <th>发送时间（美区）</th>
                     </tr>
                 `)
                 .replace('{{DATA}}', dataHtml);
