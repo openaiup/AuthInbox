@@ -48,7 +48,7 @@ export default {
             let responseHtml = indexHtml
                 .replace('{{TABLE_HEADERS}}', `
                     <tr>
-                        <th>From</th>
+                        <th>账号</th>
                         <th>Topic</th>
                         <th>Code/Link</th>
                         <th>Receive Time (GMT)</th>
