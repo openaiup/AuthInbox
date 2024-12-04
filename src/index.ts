@@ -49,7 +49,7 @@ export default {
                 .replace('{{TABLE_HEADERS}}', `
                     <tr>
                         <th>账号</th>
-                        <th>Topic</th>
+                        <th>标题</th>
                         <th>登陆验证码</th>
                         <th>发送时间（美区）</th>
                     </tr>
