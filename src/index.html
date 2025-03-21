@@ -177,7 +177,6 @@
             letter-spacing: 3px;
             position: relative;
             padding: 15px 0;
-            animation: glow 3s ease-in-out infinite;
             background: linear-gradient(
                 120deg,
                 var(--primary-color) 0%,
@@ -185,12 +184,60 @@
                 var(--primary-color) 100%
             );
             background-size: 200% auto;
-            animation: gradientText 6s linear infinite;
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
             text-transform: uppercase;
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+            opacity: 0;
+            transform: scale(0.8) translateY(-50px);
+            animation: titleEnter 1.5s ease-out forwards,
+                       gradientText 6s linear infinite 1.5s;
+        }
+
+        @keyframes titleEnter {
+            0% {
+                opacity: 0;
+                transform: scale(0.8) translateY(-50px);
+                filter: blur(20px);
+            }
+            60% {
+                opacity: 0.8;
+                transform: scale(1.1) translateY(0);
+                filter: blur(0);
+            }
+            80% {
+                opacity: 1;
+                transform: scale(0.95) translateY(0);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        h1 .char {
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(-100px) rotate(20deg);
+            animation: charEnter 0.5s ease-out forwards;
+        }
+
+        @keyframes charEnter {
+            0% {
+                opacity: 0;
+                transform: translateY(-100px) rotate(20deg);
+                text-shadow: 0 0 50px var(--primary-color);
+            }
+            60% {
+                opacity: 0.8;
+                transform: translateY(20px) rotate(-5deg);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) rotate(0deg);
+                text-shadow: 0 0 20px var(--primary-color);
+            }
         }
 
         h1::before {
@@ -209,7 +256,8 @@
             background-size: 200% 100%;
             animation: scanline 2s linear infinite;
             z-index: -1;
-            opacity: 0.5;
+            opacity: 0;
+            animation: scanline 2s linear infinite 1.5s;
         }
 
         h1::after {
@@ -217,7 +265,7 @@
             position: absolute;
             left: 50%;
             bottom: 0;
-            width: 60%;
+            width: 0;
             height: 2px;
             transform: translateX(-50%);
             background: linear-gradient(
@@ -228,8 +276,20 @@
                 var(--primary-color) 80%,
                 transparent 100%
             );
-            opacity: 0.8;
+            opacity: 0;
             filter: blur(1px);
+            animation: lineExpand 0.8s ease-out forwards 1s;
+        }
+
+        @keyframes lineExpand {
+            0% {
+                width: 0;
+                opacity: 0;
+            }
+            100% {
+                width: 60%;
+                opacity: 0.8;
+            }
         }
 
         .table-container {
@@ -386,10 +446,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // 添加复制按钮
     addCopyButtons();
     
-    // 为标题添加data-text属性
+    // 为标题添加字符动画
     const h1 = document.querySelector('h1');
     if (h1) {
-        h1.setAttribute('data-text', h1.textContent);
+        const text = h1.textContent;
+        h1.setAttribute('data-text', text);
+        h1.innerHTML = text.split('').map((char, i) => 
+            `<span class="char" style="animation-delay: ${i * 0.1}s">${char}</span>`
+        ).join('');
     }
 
     initCursorEffect();
