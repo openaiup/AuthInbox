@@ -116,13 +116,17 @@
 
 <script>
 // 存储上一次的所有内容
-let previousContents = new Set();
+let previousRows = new Map();
 
 // 初始化时记录当前所有内容
 document.addEventListener('DOMContentLoaded', function() {
-    const cells = document.querySelectorAll('#data-table td');
-    cells.forEach(cell => {
-        previousContents.add(cell.textContent.trim());
+    const rows = document.querySelectorAll('#data-table tr');
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length > 0) {
+            const rowKey = Array.from(cells).map(cell => cell.textContent.trim()).join('|');
+            previousRows.set(rowKey, true);
+        }
     });
     addCopyButtons();
 });
@@ -159,24 +163,30 @@ function copyToClipboard(text, btn) {
 
 // 添加复制按钮到验证码单元格
 function addCopyButtons() {
-    const cells = document.querySelectorAll('#data-table td');
-    cells.forEach(cell => {
-        const content = cell.textContent.trim();
-        const isNew = !previousContents.has(content);
-        
-        if (content.match(/^\d+$/)) {  // 如果是验证码
-            cell.innerHTML = `
-                <div class="code-cell">
-                    <span class="${isNew ? 'new-code' : ''}">${content}</span>
-                    <button class="copy-btn" onclick="copyToClipboard('${content}', this)">复制</button>
-                </div>
-            `;
-        } else {  // 其他文本内容
-            cell.innerHTML = `
-                <div class="code-cell">
-                    <span class="${isNew ? 'new-code' : ''}">${content}</span>
-                </div>
-            `;
+    const rows = document.querySelectorAll('#data-table tr');
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length > 0) {
+            const rowKey = Array.from(cells).map(cell => cell.textContent.trim()).join('|');
+            const isNewRow = !previousRows.has(rowKey);
+            
+            cells.forEach(cell => {
+                const content = cell.textContent.trim();
+                if (content.match(/^\d+$/)) {  // 如果是验证码
+                    cell.innerHTML = `
+                        <div class="code-cell">
+                            <span class="${isNewRow ? 'new-code' : ''}">${content}</span>
+                            <button class="copy-btn" onclick="copyToClipboard('${content}', this)">复制</button>
+                        </div>
+                    `;
+                } else {  // 其他文本内容
+                    cell.innerHTML = `
+                        <div class="code-cell">
+                            <span class="${isNewRow ? 'new-code' : ''}">${content}</span>
+                        </div>
+                    `;
+                }
+            });
         }
     });
 }
