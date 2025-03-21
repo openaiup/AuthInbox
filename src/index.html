@@ -29,6 +29,7 @@
             overflow-x: hidden;
             opacity: 0;
             animation: fadeIn 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            overflow-y: overlay;
         }
 
         @keyframes fadeIn {
@@ -417,6 +418,66 @@
 
             .copy-btn {
                 padding: 6px 12px;
+            }
+        }
+
+        /* 添加自定义滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(
+                180deg,
+                var(--primary-color) 0%,
+                var(--secondary-color) 100%
+            );
+            border-radius: 5px;
+            border: 2px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(
+                180deg,
+                var(--primary-color) 20%,
+                var(--secondary-color) 80%
+            );
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+
+        ::-webkit-scrollbar-corner {
+            background: transparent;
+        }
+
+        /* 优化滚动行为 */
+        html {
+            scroll-behavior: smooth;
+            scrollbar-color: var(--primary-color) rgba(255, 255, 255, 0.05);
+            scrollbar-width: thin;
+        }
+
+        /* 针对Firefox的滚动条样式 */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-color) rgba(255, 255, 255, 0.05);
+        }
+
+        /* 优化移动端滚动体验 */
+        @media (max-width: 768px) {
+            ::-webkit-scrollbar {
+                width: 6px;
+                height: 6px;
+            }
+            
+            ::-webkit-scrollbar-thumb {
+                border-width: 1px;
             }
         }
     </style>
