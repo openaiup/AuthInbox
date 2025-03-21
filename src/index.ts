@@ -49,7 +49,7 @@ export default {
                 .replace('{{TABLE_HEADERS}}', `
                     <tr>
                         <th>📬账号</th>
-                        <th>⚠️点击发送后请多刷新网页</th>
+                        <th>⚠️安全验证项</th>
                         <th>🔢登陆验证码（十分钟内有效）</th>
                         <th>🕐发送时间（美区）</th>
                     </tr>
