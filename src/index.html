@@ -45,6 +45,7 @@
             pointer-events: none;
             z-index: 9999;
             transition: transform 0.1s;
+            transform: translate(-50%, -50%);
         }
 
         .cursor-outline {
@@ -57,6 +58,7 @@
             z-index: 9999;
             transition: transform 0.2s, width 0.2s, height 0.2s;
             transform-origin: center;
+            transform: translate(-50%, -50%);
         }
 
         .particle {
@@ -440,8 +442,8 @@ function initCursorEffect() {
         const posX = e.clientX;
         const posY = e.clientY;
 
-        cursorDot.style.transform = `translate(${posX}px, ${posY}px)`;
-        cursorOutline.style.transform = `translate(${posX - 15}px, ${posY - 15}px)`;
+        cursorDot.style.transform = `translate(${posX}px, ${posY}px) translate(-50%, -50%)`;
+        cursorOutline.style.transform = `translate(${posX}px, ${posY}px) translate(-50%, -50%)`;
     });
 
     // 鼠标悬停在可点击元素上时的效果
