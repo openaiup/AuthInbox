@@ -191,7 +191,6 @@
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
             opacity: 0;
             transform: scale(0.98);
-            transition: opacity 0.5s ease, transform 0.5s ease;
         }
 
         h1.active {
@@ -769,9 +768,13 @@ function createTitleParticlesAnimation(titleElement, container) {
         if (progress < 1) {
             requestAnimationFrame(animate);
         } else {
-            // 显示实际标题
+            // 显示实际标题并添加动态效果
             titleElement.style.opacity = '1';
             titleElement.style.transform = 'scale(1)';
+            titleElement.style.animation = 'glow 3s ease-in-out infinite, gradientText 6s linear infinite';
+            
+            // 激活扫描线效果
+            titleElement.classList.add('active');
             
             // 清理粒子
             setTimeout(() => {
