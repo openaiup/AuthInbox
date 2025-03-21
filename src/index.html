@@ -82,7 +82,8 @@
         .code-cell {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: flex-start;
+            gap: 10px;
         }
         @media (max-width: 600px) {
             th, td {
@@ -107,9 +108,8 @@
 
 <script>
 // 复制功能
-function copyToClipboard(text) {
+function copyToClipboard(text, btn) {
     navigator.clipboard.writeText(text).then(() => {
-        const btn = event.target;
         const originalText = btn.textContent;
         btn.textContent = '已复制';
         setTimeout(() => {
@@ -129,7 +129,7 @@ function addCopyButtons() {
             cell.innerHTML = `
                 <div class="code-cell">
                     <span>${code}</span>
-                    <button class="copy-btn" onclick="copyToClipboard('${code}')">复制</button>
+                    <button class="copy-btn" onclick="copyToClipboard('${code}', this)">复制</button>
                 </div>
             `;
         }
