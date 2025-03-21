@@ -177,7 +177,6 @@
             letter-spacing: 3px;
             position: relative;
             padding: 15px 0;
-            animation: glow 3s ease-in-out infinite;
             background: linear-gradient(
                 120deg,
                 var(--primary-color) 0%,
@@ -185,12 +184,14 @@
                 var(--primary-color) 100%
             );
             background-size: 200% auto;
-            animation: gradientText 6s linear infinite;
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
             text-transform: uppercase;
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+            opacity: 0;
+            animation: gradientText 6s linear infinite;
+            animation-delay: 3s;
         }
 
         h1::before {
@@ -208,8 +209,9 @@
             );
             background-size: 200% 100%;
             animation: scanline 2s linear infinite;
+            animation-delay: 3s;
             z-index: -1;
-            opacity: 0.5;
+            opacity: 0;
         }
 
         h1::after {
@@ -232,6 +234,18 @@
             filter: blur(1px);
         }
 
+        .title-particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            opacity: 0;
+            z-index: 100;
+            box-shadow: 0 0 6px var(--primary-color);
+            will-change: transform;
+        }
+
         .table-container {
             overflow: hidden;
             margin: 0 auto;
@@ -245,7 +259,7 @@
             opacity: 0;
             transform: translateY(30px);
             animation: slideUp 0.8s ease-out forwards;
-            animation-delay: 0.5s;
+            animation-delay: 3s;
         }
 
         @keyframes slideUp {
@@ -386,10 +400,32 @@ document.addEventListener('DOMContentLoaded', function() {
     // 添加复制按钮
     addCopyButtons();
     
-    // 为标题添加data-text属性
+    // 为标题添加粒子聚合动画
     const h1 = document.querySelector('h1');
     if (h1) {
-        h1.setAttribute('data-text', h1.textContent);
+        const text = h1.textContent;
+        h1.setAttribute('data-text', text);
+        
+        // 隐藏原始标题直到粒子动画完成
+        h1.style.opacity = '0';
+        
+        // 创建粒子容器
+        const particleContainer = document.createElement('div');
+        particleContainer.style.position = 'absolute';
+        particleContainer.style.top = '0';
+        particleContainer.style.left = '0';
+        particleContainer.style.width = '100%';
+        particleContainer.style.height = '100%';
+        particleContainer.style.pointerEvents = 'none';
+        document.querySelector('.container').appendChild(particleContainer);
+        
+        // 获取标题的位置和尺寸
+        const rect = h1.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        // 创建点阵数据
+        createTitleParticles(h1, text, particleContainer, centerX, centerY);
     }
 
     initCursorEffect();
@@ -593,6 +629,137 @@ function initParticleEffect() {
             lastMicroParticleTime = now;
         }
     });
+}
+
+// 创建标题粒子
+function createTitleParticles(h1Element, text, container, centerX, centerY) {
+    // 创建临时canvas以获取文本像素数据
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const fontSize = parseInt(window.getComputedStyle(h1Element).fontSize);
+    
+    canvas.width = h1Element.offsetWidth;
+    canvas.height = h1Element.offsetHeight * 1.2;
+    
+    ctx.font = `800 ${fontSize}px 'Open Sans', sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+    
+    // 采样点获取像素数据
+    const pixelData = [];
+    const sampleInterval = 4; // 采样间隔
+    
+    for (let y = 0; y < canvas.height; y += sampleInterval) {
+        for (let x = 0; x < canvas.width; x += sampleInterval) {
+            const data = ctx.getImageData(x, y, 1, 1).data;
+            if (data[3] > 50) { // 透明度阈值
+                pixelData.push({x, y});
+            }
+        }
+    }
+    
+    // 随机位置生成粒子
+    const particles = [];
+    const particleCount = Math.min(pixelData.length, 500); // 最多500个粒子
+    
+    for (let i = 0; i < particleCount; i++) {
+        const pixelPoint = pixelData[Math.floor(Math.random() * pixelData.length)];
+        
+        // 创建粒子元素
+        const particle = document.createElement('div');
+        particle.classList.add('title-particle');
+        
+        // 随机初始位置（屏幕周围）
+        const randomAngle = Math.random() * Math.PI * 2;
+        const randomDistance = Math.random() * 300 + 100;
+        const startX = centerX + Math.cos(randomAngle) * randomDistance;
+        const startY = centerY + Math.sin(randomAngle) * randomDistance;
+        
+        // 设置目标位置（标题文字上）
+        const targetX = h1Element.offsetLeft + pixelPoint.x;
+        const targetY = h1Element.offsetTop + pixelPoint.y;
+        
+        // 随机延迟
+        const delay = Math.random() * 1.5;
+        
+        // 应用样式
+        particle.style.left = `${startX}px`;
+        particle.style.top = `${startY}px`;
+        
+        // 根据距离目标的远近设置不同颜色
+        const hue = Math.random() * 40 + 180; // 蓝色到青色范围
+        particle.style.backgroundColor = `hsl(${hue}, 100%, 70%)`;
+        particle.style.boxShadow = `0 0 6px hsl(${hue}, 100%, 70%)`;
+        
+        // 加入到容器
+        container.appendChild(particle);
+        particles.push({element: particle, targetX, targetY, delay});
+    }
+    
+    // 执行动画
+    let startTime = null;
+    const duration = 3000; // 3秒动画
+    
+    function animateParticles(timestamp) {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        
+        // 执行粒子动画
+        particles.forEach(particle => {
+            const particleElapsed = Math.max(0, elapsed - particle.delay * 1000);
+            if (particleElapsed <= 0) return;
+            
+            const progress = Math.min(1, particleElapsed / (duration - particle.delay * 1000));
+            
+            // 使用缓动函数增加平滑度
+            const easeProgress = 1 - Math.pow(1 - progress, 3);
+            
+            // 当前位置计算
+            const currentX = parseFloat(particle.element.style.left) + 
+                (particle.targetX - parseFloat(particle.element.style.left)) * easeProgress;
+            const currentY = parseFloat(particle.element.style.top) + 
+                (particle.targetY - parseFloat(particle.element.style.top)) * easeProgress;
+            
+            // 更新位置
+            particle.element.style.left = `${currentX}px`;
+            particle.element.style.top = `${currentY}px`;
+            
+            // 透明度和大小
+            particle.element.style.opacity = easeProgress;
+            particle.element.style.transform = `scale(${0.5 + easeProgress * 0.5})`;
+        });
+        
+        // 动画完成后显示实际标题文字
+        if (elapsed >= duration) {
+            h1Element.style.opacity = '1';
+            h1Element.style.animation = 'gradientText 6s linear infinite, glow 3s ease-in-out infinite';
+            
+            // 实际标题出现后逐渐淡出粒子
+            particles.forEach(particle => {
+                particle.element.style.transition = 'opacity 0.5s ease-out';
+                particle.element.style.opacity = '0';
+                
+                // 0.5秒后移除粒子元素
+                setTimeout(() => {
+                    if (particle.element.parentNode) {
+                        particle.element.parentNode.removeChild(particle.element);
+                    }
+                }, 500);
+            });
+            
+            // 显示扫描线效果
+            const titleBefore = h1Element.querySelector('::before');
+            if (titleBefore) titleBefore.style.opacity = '0.5';
+            
+            return;
+        }
+        
+        requestAnimationFrame(animateParticles);
+    }
+    
+    requestAnimationFrame(animateParticles);
 }
 </script>
 </body>
