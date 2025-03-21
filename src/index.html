@@ -28,12 +28,20 @@
             position: relative;
             overflow-x: hidden;
             opacity: 0;
-            animation: fadeIn 1s ease-out forwards;
+            animation: fadeIn 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+            from { 
+                opacity: 0; 
+                transform: translateY(30px) scale(0.98);
+                filter: blur(10px);
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0) scale(1);
+                filter: blur(0);
+            }
         }
 
         .cursor-dot {
@@ -249,19 +257,21 @@
             border: 1px solid var(--border-color);
             transition: all 0.3s ease;
             opacity: 0;
-            transform: translateY(30px);
-            animation: slideUp 0.8s ease-out forwards;
-            animation-delay: 3.2s;
+            transform: translateY(40px);
+            animation: slideUp 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            animation-delay: 2.8s;
         }
 
         @keyframes slideUp {
             from { 
                 opacity: 0;
-                transform: translateY(30px);
+                transform: translateY(40px) scale(0.96);
+                filter: blur(8px);
             }
             to {
                 opacity: 1;
-                transform: translateY(0);
+                transform: translateY(0) scale(1);
+                filter: blur(0);
             }
         }
 
@@ -654,42 +664,46 @@ function initParticleEffect() {
 
 // 优化标题粒子动画函数
 function createTitleParticlesAnimation(titleElement, container) {
-    const particleCount = 400; // 减少粒子数量以提高性能
-    const duration = 3000; // 增加动画时长使其更流畅
+    const particleCount = 1000; // 增加粒子数量
+    const duration = 2800; // 延长动画时间
     const particles = [];
     
-    // 获取标题位置
     const rect = titleElement.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
+    const width = rect.width;
+    const height = rect.height;
+    
+    const gridSize = 8; // 减小网格大小以获得更细腻的效果
+    const cols = Math.floor(width / gridSize);
+    const rows = Math.floor(height / gridSize);
     
     // 创建粒子
     for (let i = 0; i < particleCount; i++) {
         const particle = document.createElement('div');
         particle.className = 'title-particle';
         
-        // 计算目标位置（在标题区域内随机分布）
-        const targetX = rect.left + Math.random() * rect.width;
-        const targetY = rect.top + Math.random() * rect.height;
+        const col = i % cols;
+        const row = Math.floor((i / cols) % rows);
+        const targetX = rect.left + (col * gridSize) + (Math.random() * gridSize);
+        const targetY = rect.top + (row * gridSize) + (Math.random() * gridSize);
         
-        // 优化起始位置分布（使用螺旋形分布）
-        const angle = (i / particleCount) * Math.PI * 8; // 增加螺旋圈数
-        const spiralRadius = (1 - i / particleCount) * Math.max(window.innerWidth, window.innerHeight) * 0.5;
-        const startX = centerX + Math.cos(angle) * spiralRadius;
-        const startY = centerY + Math.sin(angle) * spiralRadius;
+        // 优化起始位置分布
+        const angle = (i / particleCount) * Math.PI * 2 + Math.random() * 0.5;
+        const distance = Math.random() * 300 + 150; // 增加起始距离范围
         
-        // 优化粒子样式
+        const startX = rect.left + width/2 + Math.cos(angle) * distance;
+        const startY = rect.top + height/2 + Math.sin(angle) * distance;
+        
+        // 改进粒子样式
         particle.style.cssText = `
             position: fixed;
-            width: ${Math.random() * 2 + 2}px; // 随机大小
-            height: ${Math.random() * 2 + 2}px;
+            width: ${Math.random() * 2 + 1}px;
+            height: ${Math.random() * 2 + 1}px;
             background: var(--primary-color);
-            box-shadow: 0 0 6px var(--primary-color);
+            box-shadow: 0 0 ${Math.random() * 3 + 2}px var(--primary-color);
             left: ${startX}px;
             top: ${startY}px;
             opacity: 0;
             border-radius: 50%;
-            z-index: 1000;
             will-change: transform, opacity;
         `;
         
@@ -701,12 +715,11 @@ function createTitleParticlesAnimation(titleElement, container) {
             startY,
             targetX,
             targetY,
-            delay: Math.random() * 400, // 增加延迟差异
-            speed: Math.random() * 0.4 + 0.8 // 随机速度因子
+            delay: Math.random() * 400,
+            size: Math.random()
         });
     }
     
-    // 执行动画
     const startTime = performance.now();
     
     function animate() {
@@ -714,43 +727,48 @@ function createTitleParticlesAnimation(titleElement, container) {
         const elapsed = now - startTime;
         const progress = Math.min(1, elapsed / duration);
         
-        particles.forEach(p => {
+        particles.forEach((p, i) => {
             if (elapsed < p.delay) return;
             
-            const particleProgress = Math.min(1, (elapsed - p.delay) / ((duration - p.delay) * p.speed));
-            const ease = easeOutCubic(particleProgress); // 使用更平滑的缓动函数
+            const particleProgress = Math.min(1, (elapsed - p.delay) / (duration - p.delay));
+            const ease = easeOutExpo(particleProgress); // 使用指数缓动函数
             
             const x = p.startX + (p.targetX - p.startX) * ease;
             const y = p.startY + (p.targetY - p.startY) * ease;
             
-            // 添加轻微的摆动效果
-            const wobble = Math.sin(elapsed * 0.01) * (1 - ease) * 5;
+            // 添加轻微的波动效果
+            const wobble = Math.sin(elapsed * 0.01 + i) * (1 - ease) * 2;
             
-            p.element.style.transform = `translate(${x - p.startX + wobble}px, ${y - p.startY}px)`;
-            p.element.style.opacity = particleProgress < 0.2 ? particleProgress * 5 : 
-                                    particleProgress > 0.8 ? (1 - particleProgress) * 5 : 1;
+            p.element.style.transform = `translate(${x - p.startX}px, ${y - p.startY + wobble}px)`;
+            p.element.style.opacity = particleProgress * (0.4 + p.size * 0.6);
         });
         
         if (progress < 1) {
             requestAnimationFrame(animate);
         } else {
-            // 显示标题
-            titleElement.style.opacity = '1';
+            titleElement.style.opacity = '0';
             titleElement.classList.add('active');
             
-            // 平滑清理粒子
-            particles.forEach((p, index) => {
-                setTimeout(() => {
-                    p.element.style.opacity = '0';
-                    setTimeout(() => p.element.remove(), 300);
-                }, index * 1); // 添加极小的清理延迟
-            });
+            setTimeout(() => {
+                titleElement.style.opacity = '1';
+                titleElement.style.transform = 'scale(1)';
+                
+                // 粒子消失动画
+                particles.forEach((p, i) => {
+                    setTimeout(() => {
+                        p.element.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+                        p.element.style.opacity = '0';
+                        p.element.style.transform = `translate(${p.targetX - p.startX}px, ${p.targetY - p.startY}px) scale(0)`;
+                        setTimeout(() => p.element.remove(), 600);
+                    }, i * 0.8);
+                });
+            }, 100);
         }
     }
     
-    // 使用更平滑的缓动函数
-    function easeOutCubic(t) {
-        return 1 - Math.pow(1 - t, 3);
+    // 使用指数缓动函数获得更自然的动画效果
+    function easeOutExpo(t) {
+        return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
     }
     
     animate();
