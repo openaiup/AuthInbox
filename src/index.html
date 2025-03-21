@@ -37,8 +37,8 @@
         }
 
         .cursor-dot {
-            width: 5px;
-            height: 5px;
+            width: 4px;
+            height: 4px;
             background-color: var(--primary-color);
             border-radius: 50%;
             position: fixed;
@@ -50,6 +50,7 @@
             top: 0;
             opacity: 0;
             transform: translate(-100vw, -100vh);
+            box-shadow: 0 0 8px var(--primary-color);
         }
 
         .cursor-outline {
@@ -96,12 +97,27 @@
             opacity: 0;
             border-radius: 50%;
             background: var(--primary-color);
-            box-shadow: 0 0 10px var(--primary-color);
+            box-shadow: 0 0 6px var(--primary-color);
+        }
+
+        .micro-particle {
+            position: fixed;
+            pointer-events: none;
+            background: var(--primary-color);
+            border-radius: 50%;
+            opacity: 0;
+            z-index: 9998;
         }
 
         @keyframes particleAnimation {
-            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            0% { transform: translate(0, 0) scale(1); opacity: 0.8; }
             100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+        }
+
+        @keyframes microParticleAnimation {
+            0% { transform: translate(var(--sx), var(--sy)) scale(0); opacity: 0; }
+            50% { transform: translate(var(--mx), var(--my)) scale(1); opacity: 0.6; }
+            100% { transform: translate(var(--ex), var(--ey)) scale(0); opacity: 0; }
         }
 
         .container {
@@ -466,191 +482,98 @@ setInterval(function() {
 // 鼠标跟随效果
 function initCursorEffect() {
     const cursorDot = document.querySelector('.cursor-dot');
-    const mainOutline = document.createElement('div');
-    mainOutline.className = 'cursor-outline main';
-    document.body.appendChild(mainOutline);
-
-    // 创建额外的光圈
-    const outlines = [mainOutline];
-    const trailCount = 8; // 增加跟随光圈数量
-    for (let i = 0; i < trailCount; i++) {
-        const outline = document.createElement('div');
-        outline.className = 'cursor-outline trail';
-        document.body.appendChild(outline);
-        outlines.push(outline);
-    }
-
-    // 创建残影效果
-    const afterimageCount = 5;
-    const afterimages = [];
-    for (let i = 0; i < afterimageCount; i++) {
-        const afterimage = document.createElement('div');
-        afterimage.className = 'cursor-outline afterimage';
-        document.body.appendChild(afterimage);
-        afterimages.push(afterimage);
-    }
-
-    let mouseX = -100, mouseY = -100;
-    let isMoving = false;
-    let moveTimeout;
-    let lastX = -100, lastY = -100;
-    let positions = Array(trailCount + 1).fill({ x: -100, y: -100, timestamp: 0 });
-    let lastUpdateTime = 0;
     let isMouseInPage = false;
+    let mouseX = -100, mouseY = -100;
 
     // 监听鼠标进入页面
     document.addEventListener('mouseenter', () => {
         isMouseInPage = true;
-        outlines.forEach(outline => {
-            outline.style.opacity = outline.classList.contains('main') ? '1' : '0';
-        });
         cursorDot.style.opacity = '1';
     });
 
     // 监听鼠标离开页面
     document.addEventListener('mouseleave', () => {
         isMouseInPage = false;
-        outlines.forEach(outline => {
-            outline.style.opacity = '0';
-            outline.style.transform = 'translate(-100vw, -100vh)';
-        });
-        afterimages.forEach(afterimage => {
-            afterimage.style.opacity = '0';
-            afterimage.style.transform = 'translate(-100vw, -100vh)';
-        });
         cursorDot.style.opacity = '0';
         cursorDot.style.transform = 'translate(-100vw, -100vh)';
     });
 
     window.addEventListener('mousemove', (e) => {
         if (!isMouseInPage) return;
-
         mouseX = e.clientX;
         mouseY = e.clientY;
-        const currentTime = performance.now();
-
-        // 更新位置历史
-        positions.pop();
-        positions.unshift({ 
-            x: mouseX, 
-            y: mouseY, 
-            timestamp: currentTime 
-        });
-
-        // 检测是否在移动
-        const moveDistance = Math.hypot(lastX - mouseX, lastY - mouseY);
-        const moveSpeed = moveDistance / Math.max(1, currentTime - lastUpdateTime);
-
-        if (moveSpeed > 0.1) {
-            isMoving = true;
-            clearTimeout(moveTimeout);
-
-            // 更新光圈
-            outlines.forEach((outline, index) => {
-                if (index > 0) {
-                    outline.classList.add('active');
-                    const opacity = Math.min(0.6, moveSpeed * 0.3) * (1 - index * 0.1);
-                    outline.style.opacity = opacity.toString();
-                }
-            });
-
-            // 创建残影
-            const currentPos = { x: mouseX, y: mouseY };
-            afterimages.forEach((afterimage, index) => {
-                setTimeout(() => {
-                    if (!isMouseInPage) return;
-                    afterimage.style.transform = `translate(${currentPos.x}px, ${currentPos.y}px) translate(-50%, -50%) scale(${1 - index * 0.15})`;
-                    afterimage.style.opacity = (0.3 / (index + 1)).toString();
-                    afterimage.style.filter = `blur(${index * 2}px)`;
-                }, index * 50);
-            });
-
-            moveTimeout = setTimeout(() => {
-                isMoving = false;
-                outlines.forEach((outline, index) => {
-                    if (index > 0) {
-                        outline.classList.remove('active');
-                        outline.style.opacity = '0';
-                    }
-                });
-                afterimages.forEach(afterimage => {
-                    afterimage.style.opacity = '0';
-                });
-            }, 150);
-        }
-
-        lastX = mouseX;
-        lastY = mouseY;
-        lastUpdateTime = currentTime;
-    });
-
-    function updateCursors() {
-        if (!isMouseInPage) return;
-
-        // 更新内圆点位置
         cursorDot.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;
-
-        // 更新主光圈位置
-        mainOutline.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;
-
-        // 更新跟随光圈位置
-        if (isMoving) {
-            outlines.forEach((outline, index) => {
-                if (index > 0) {
-                    const pos = positions[Math.min(index, positions.length - 1)];
-                    const scale = 1 - index * 0.06;
-                    const blur = index * 1.5;
-                    outline.style.transform = `translate(${pos.x}px, ${pos.y}px) translate(-50%, -50%) scale(${scale})`;
-                    outline.style.filter = `blur(${blur}px)`;
-                }
-            });
-        }
-
-        requestAnimationFrame(updateCursors);
-    }
-    updateCursors();
-
-    // 鼠标悬停效果保持不变
-    // ... existing hover effect code ...
+    });
 }
 
 // 创建粒子效果
-function createParticle(x, y) {
+function createParticle(x, y, isMicroParticle = false) {
     const particle = document.createElement('div');
-    particle.className = 'particle';
+    particle.className = isMicroParticle ? 'micro-particle' : 'particle';
     document.body.appendChild(particle);
 
-    const size = Math.random() * 4 + 2;
-    const angle = Math.random() * Math.PI * 2;
-    const velocity = Math.random() * 100 + 50;
-    const tx = Math.cos(angle) * velocity;
-    const ty = Math.sin(angle) * velocity;
-    
-    particle.style.width = `${size}px`;
-    particle.style.height = `${size}px`;
-    particle.style.left = `${x}px`;
-    particle.style.top = `${y}px`;
-    particle.style.setProperty('--tx', `${tx}px`);
-    particle.style.setProperty('--ty', `${ty}px`);
-    
-    particle.style.animation = 'particleAnimation 1s ease-out forwards';
+    if (isMicroParticle) {
+        const size = Math.random() * 2 + 1;
+        const angle = Math.random() * Math.PI * 2;
+        const distance = Math.random() * 30 + 10;
+        const duration = Math.random() * 0.8 + 0.5;
+        
+        const startX = Math.cos(angle) * 2;
+        const startY = Math.sin(angle) * 2;
+        const midX = Math.cos(angle) * distance * 0.5;
+        const midY = Math.sin(angle) * distance * 0.5;
+        const endX = Math.cos(angle) * distance;
+        const endY = Math.sin(angle) * distance;
+
+        particle.style.width = `${size}px`;
+        particle.style.height = `${size}px`;
+        particle.style.left = `${x}px`;
+        particle.style.top = `${y}px`;
+        particle.style.setProperty('--sx', `${startX}px`);
+        particle.style.setProperty('--sy', `${startY}px`);
+        particle.style.setProperty('--mx', `${midX}px`);
+        particle.style.setProperty('--my', `${midY}px`);
+        particle.style.setProperty('--ex', `${endX}px`);
+        particle.style.setProperty('--ey', `${endY}px`);
+        
+        particle.style.animation = `microParticleAnimation ${duration}s ease-out forwards`;
+    } else {
+        const size = Math.random() * 3 + 2;
+        const angle = Math.random() * Math.PI * 2;
+        const velocity = Math.random() * 80 + 40;
+        const tx = Math.cos(angle) * velocity;
+        const ty = Math.sin(angle) * velocity;
+        
+        particle.style.width = `${size}px`;
+        particle.style.height = `${size}px`;
+        particle.style.left = `${x}px`;
+        particle.style.top = `${y}px`;
+        particle.style.setProperty('--tx', `${tx}px`);
+        particle.style.setProperty('--ty', `${ty}px`);
+        
+        particle.style.animation = 'particleAnimation 0.8s ease-out forwards';
+    }
     
     setTimeout(() => {
         document.body.removeChild(particle);
-    }, 1000);
+    }, isMicroParticle ? 1000 : 800);
 }
 
 // 鼠标移动时创建粒子
 function initParticleEffect() {
     let lastParticleTime = 0;
+    let lastMicroParticleTime = 0;
+    
     window.addEventListener('mousemove', (e) => {
         const now = performance.now();
-        if (now - lastParticleTime > 20) { // 每20ms创建一个粒子
+        
+        // 创建主粒子
+        if (now - lastParticleTime > 20) { // 每20ms创建一个主粒子
             createParticle(e.clientX, e.clientY);
             lastParticleTime = now;
             
-            // 随机创建额外的粒子
-            if (Math.random() < 0.3) { // 30%的概率创建额外粒子
+            // 随机创建额外的主粒子
+            if (Math.random() < 0.3) {
                 setTimeout(() => {
                     createParticle(
                         e.clientX + (Math.random() - 0.5) * 20,
@@ -658,6 +581,14 @@ function initParticleEffect() {
                     );
                 }, Math.random() * 100);
             }
+        }
+        
+        // 创建微粒子
+        if (now - lastMicroParticleTime > 10) { // 每10ms创建微粒子
+            for (let i = 0; i < 3; i++) { // 每次创建3个微粒子
+                createParticle(e.clientX, e.clientY, true);
+            }
+            lastMicroParticleTime = now;
         }
     });
 }
