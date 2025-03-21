@@ -118,6 +118,17 @@
 // 存储上一次的验证码
 let previousCodes = new Set();
 
+// 初始化时记录当前所有验证码
+document.addEventListener('DOMContentLoaded', function() {
+    const cells = document.querySelectorAll('#data-table td');
+    cells.forEach(cell => {
+        if (cell.textContent.trim().match(/^\d+$/)) {
+            previousCodes.add(cell.textContent.trim());
+        }
+    });
+    addCopyButtons();
+});
+
 // 复制功能
 function copyToClipboard(text, btn) {
     // 创建临时输入框
@@ -151,12 +162,9 @@ function copyToClipboard(text, btn) {
 // 添加复制按钮到验证码单元格
 function addCopyButtons() {
     const cells = document.querySelectorAll('#data-table td');
-    const currentCodes = new Set();
-    
     cells.forEach(cell => {
         if (cell.textContent.trim().match(/^\d+$/)) {  // 如果单元格内容是纯数字
             const code = cell.textContent.trim();
-            currentCodes.add(code);
             const isNew = !previousCodes.has(code);
             cell.innerHTML = `
                 <div class="code-cell">
@@ -166,9 +174,6 @@ function addCopyButtons() {
             `;
         }
     });
-    
-    // 更新之前的验证码记录
-    previousCodes = currentCodes;
 }
 
 // 每10秒自动获取新数据
@@ -184,39 +189,17 @@ setInterval(function() {
             const temp = document.createElement('div');
             temp.innerHTML = html;
             
-            // 获取新的表格内容中的所有验证码
-            const newCodes = new Set();
-            temp.querySelectorAll('#data-table td').forEach(cell => {
-                if (cell.textContent.trim().match(/^\d+$/)) {
-                    newCodes.add(cell.textContent.trim());
-                }
-            });
+            // 获取新的表格内容
+            const newTable = temp.querySelector('#data-table').innerHTML;
             
-            // 更新当前表格内容，保持已有的动画效果
-            const currentTable = document.getElementById('data-table');
-            const currentCells = currentTable.getElementsByTagName('td');
-            Array.from(currentCells).forEach(cell => {
-                const codeSpan = cell.querySelector('span');
-                if (codeSpan) {
-                    const currentCode = codeSpan.textContent.trim();
-                    if (!previousCodes.has(currentCode) && newCodes.has(currentCode)) {
-                        // 保持新验证码的动画效果
-                        codeSpan.className = 'new-code';
-                    }
-                }
-            });
-            
-            // 更新验证码记录
-            previousCodes = newCodes;
+            // 更新当前表格内容
+            document.getElementById('data-table').innerHTML = newTable;
             
             // 重新添加复制按钮
             addCopyButtons();
         })
         .catch(error => console.error('刷新失败:', error));
 }, 10000);
-
-// 页面加载完成后添加复制按钮
-document.addEventListener('DOMContentLoaded', addCopyButtons);
 </script>
 </body>
 </html> 
