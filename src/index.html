@@ -177,6 +177,7 @@
             letter-spacing: 3px;
             position: relative;
             padding: 15px 0;
+            animation: glow 3s ease-in-out infinite;
             background: linear-gradient(
                 120deg,
                 var(--primary-color) 0%,
@@ -184,65 +185,51 @@
                 var(--primary-color) 100%
             );
             background-size: 200% auto;
+            animation: gradientText 6s linear infinite;
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
             text-transform: uppercase;
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-            opacity: 0;
-            transform: perspective(800px) rotateX(30deg) scale(2);
-            animation: titleEntrance 3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-            transform-origin: center top;
         }
 
-        @keyframes titleEntrance {
-            0% {
-                opacity: 0;
-                transform: perspective(800px) rotateX(30deg) translateY(100px) scale(2);
-                filter: blur(20px) brightness(2) drop-shadow(0 0 20px var(--primary-color));
-                letter-spacing: 20px;
-            }
-            30% {
-                opacity: 1;
-                filter: blur(5px) brightness(1.5) drop-shadow(0 0 15px var(--primary-color));
-            }
-            60% {
-                transform: perspective(800px) rotateX(10deg) translateY(0) scale(1.2);
-                letter-spacing: 8px;
-                filter: blur(0) brightness(1.2) drop-shadow(0 0 10px var(--primary-color));
-            }
-            100% {
-                transform: perspective(800px) rotateX(0) translateY(0) scale(1);
-                letter-spacing: 3px;
-                filter: blur(0) brightness(1) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-            }
-        }
-
-        .light-rays {
-            position: fixed;
-            top: 0;
+        h1::before {
+            content: attr(data-text);
+            position: absolute;
             left: 0;
+            top: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none;
+            background: linear-gradient(
+                90deg,
+                transparent 0%,
+                rgba(255, 255, 255, 0.2) 50%,
+                transparent 100%
+            );
+            background-size: 200% 100%;
+            animation: scanline 2s linear infinite;
             z-index: -1;
-            opacity: 0;
-            animation: raysAppear 3s ease-out forwards;
+            opacity: 0.5;
         }
 
-        @keyframes raysAppear {
-            0% {
-                opacity: 0;
-            }
-            20% {
-                opacity: 0.8;
-            }
-            70% {
-                opacity: 0.6;
-            }
-            100% {
-                opacity: 0;
-            }
+        h1::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            bottom: 0;
+            width: 60%;
+            height: 2px;
+            transform: translateX(-50%);
+            background: linear-gradient(
+                90deg,
+                transparent 0%,
+                var(--primary-color) 20%,
+                var(--secondary-color) 50%,
+                var(--primary-color) 80%,
+                transparent 100%
+            );
+            opacity: 0.8;
+            filter: blur(1px);
         }
 
         .table-container {
@@ -258,7 +245,7 @@
             opacity: 0;
             transform: translateY(30px);
             animation: slideUp 0.8s ease-out forwards;
-            animation-delay: 2s;
+            animation-delay: 0.5s;
         }
 
         @keyframes slideUp {
@@ -366,75 +353,6 @@
                 padding: 6px 12px;
             }
         }
-
-        /* 为每个字符添加独立动画 */
-        h1 .char {
-            display: inline-block;
-            animation: charAnimation 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-            animation-delay: calc(2s + var(--char-index) * 0.05s);
-            opacity: 0;
-            transform: translateY(40px) rotate(10deg);
-        }
-
-        @keyframes charAnimation {
-            0% {
-                opacity: 0;
-                transform: translateY(40px) rotate(10deg);
-                filter: blur(5px);
-            }
-            100% {
-                opacity: 1;
-                transform: translateY(0) rotate(0deg);
-                filter: blur(0);
-            }
-        }
-
-        /* 添加背景动画 */
-        @keyframes backgroundPulse {
-            0% {
-                background-position: 0% 50%;
-                filter: brightness(0.8) saturate(0.8);
-            }
-            50% {
-                background-position: 100% 50%;
-                filter: brightness(1.2) saturate(1.2);
-            }
-            100% {
-                background-position: 0% 50%;
-                filter: brightness(0.8) saturate(0.8);
-            }
-        }
-
-        body::after {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle at center, 
-                                  rgba(0, 212, 255, 0.1) 0%, 
-                                  rgba(112, 0, 255, 0.05) 50%, 
-                                  transparent 100%);
-            opacity: 0;
-            z-index: -2;
-            animation: glowEffect 3s ease-out forwards;
-        }
-
-        @keyframes glowEffect {
-            0% {
-                opacity: 0;
-                transform: scale(0.8);
-            }
-            30% {
-                opacity: 1;
-                transform: scale(1.2);
-            }
-            100% {
-                opacity: 0.3;
-                transform: scale(1);
-            }
-        }
     </style>
 </head>
 <body>
@@ -468,41 +386,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // 添加复制按钮
     addCopyButtons();
     
-    // 添加光线效果
-    const lightRays = document.createElement('div');
-    lightRays.className = 'light-rays';
-    document.body.appendChild(lightRays);
-    
-    // 为标题添加字符动画
+    // 为标题添加data-text属性
     const h1 = document.querySelector('h1');
     if (h1) {
-        const text = h1.textContent;
-        h1.setAttribute('data-text', text);
-        h1.innerHTML = '';
-        
-        // 逐个添加字符并设置延迟
-        [...text].forEach((char, index) => {
-            const span = document.createElement('span');
-            span.className = 'char';
-            span.style.setProperty('--char-index', index);
-            span.textContent = char === ' ' ? '\u00A0' : char; // 保留空格
-            h1.appendChild(span);
-        });
-        
-        // 添加动画结束事件
-        h1.addEventListener('animationend', function(e) {
-            if (e.animationName === 'titleEntrance') {
-                // 标题动画结束后启用渐变动画
-                h1.style.animation = 'gradientText 6s linear infinite, glow 3s ease-in-out infinite';
-            }
-        });
+        h1.setAttribute('data-text', h1.textContent);
     }
 
     initCursorEffect();
     initParticleEffect();
-    
-    // 创建入场粒子效果
-    createEntranceParticles();
 });
 
 // 复制功能
@@ -702,31 +593,6 @@ function initParticleEffect() {
             lastMicroParticleTime = now;
         }
     });
-}
-
-// 创建入场粒子效果
-function createEntranceParticles() {
-    const container = document.querySelector('.container');
-    const rect = container.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    
-    // 创建爆发粒子
-    for (let i = 0; i < 80; i++) {
-        setTimeout(() => {
-            const angle = Math.random() * Math.PI * 2;
-            const distance = Math.random() * 300 + 100;
-            const x = centerX + Math.cos(angle) * Math.random() * 20;
-            const y = centerY + Math.sin(angle) * Math.random() * 20;
-            
-            createParticle(x, y);
-            
-            // 创建微粒子
-            for (let j = 0; j < 8; j++) {
-                createParticle(x, y, true);
-            }
-        }, Math.random() * 2000); // 在前2秒内随机创建
-    }
 }
 </script>
 </body>
