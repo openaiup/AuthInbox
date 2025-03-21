@@ -1,132 +1,146 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>阿奎GPT欢迎您</title>
-	<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap" rel="stylesheet">
-	<style>
-		body {
-			font-family: 'Open Sans', sans-serif;
-			background-color: #1a1a1a;
-			color: #ffffff;
-			margin: 0;
-			padding: 20px;
-			min-height: 100vh;
-			display: flex;
-			flex-direction: column;
-		}
-		.container {
-			flex-grow: 1;
-		}
-		h1 {
-			text-align: center;
-			color: #61dafb;
-			margin-bottom: 30px;
-			font-size: 2.5em;
-		}
-		.table-container {
-			overflow-x: auto;
-			margin: 0 auto;
-			background-color: #2a2a2a;
-			border-radius: 8px;
-			box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-		}
-		table {
-			width: 100%;
-			border-collapse: collapse;
-		}
-		th {
-			background-color: #333;
-			color: #61dafb;
-			padding: 15px;
-			text-align: left;
-			font-weight: bold;
-			border-bottom: 2px solid #444;
-		}
-		td {
-			padding: 12px 15px;
-			border-bottom: 1px solid #444;
-			color: #ffffff;
-		}
-		tr:hover {
-			background-color: #3a3a3a;
-		}
-		a {
-			color: #61dafb;
-			text-decoration: none;
-		}
-		a:hover {
-			text-decoration: underline;
-		}
-		#footer {
-			text-align: center;
-			padding: 20px 0;
-			color: #888;
-		}
-		@media (max-width: 600px) {
-			th, td {
-				padding: 10px;
-			}
-			h1 {
-				font-size: 2em;
-			}
-		}
-		.table-row-update {
-			animation: highlight 1s ease-out;
-		}
-
-		@keyframes highlight {
-			0% { background-color: #61dafb33; }
-			100% { background-color: transparent; }
-		}
-	</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>阿奎GPT欢迎您</title>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans SC', 'Open Sans', sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .container {
+            flex-grow: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #61dafb;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 0 0 10px rgba(97, 218, 251, 0.3);
+        }
+        .table-container {
+            overflow-x: auto;
+            margin: 0 auto;
+            background-color: #2a2a2a;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            background-color: #333;
+            color: #61dafb;
+            padding: 15px;
+            text-align: left;
+            font-weight: bold;
+            border-bottom: 2px solid #444;
+            position: sticky;
+            top: 0;
+        }
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #444;
+            color: #ffffff;
+        }
+        tr:hover {
+            background-color: #3a3a3a;
+            transition: background-color 0.2s ease;
+        }
+        .status-active {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        .status-inactive {
+            color: #f44336;
+            font-weight: bold;
+        }
+        .button {
+            background-color: #61dafb;
+            color: #1a1a1a;
+            padding: 8px 16px;
+            border-radius: 4px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        .button:hover {
+            background-color: #4fa8c6;
+            transform: translateY(-2px);
+            text-decoration: none;
+        }
+        #footer {
+            text-align: center;
+            padding: 20px 0;
+            color: #888;
+            margin-top: 40px;
+        }
+        @media (max-width: 600px) {
+            th, td {
+                padding: 10px;
+            }
+            h1 {
+                font-size: 2em;
+            }
+            .container {
+                padding: 0 10px;
+            }
+        }
+    </style>
 </head>
 <body>
 <div class="container">
-	<h1>阿奎GPT欢迎您</h1>
-	<div class="table-container">
-		<table>
-			<thead>
-				{{TABLE_HEADERS}}
-			</thead>
-			<tbody id="tableBody">
-				{{DATA}}
-			</tbody>
-		</table>
-	</div>
+    <h1>阿奎GPT欢迎您</h1>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>模型名称</th>
+                    <th>状态</th>
+                    <th>响应时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>1</td>
+                    <td>GPT-4</td>
+                    <td><span class="status-active">在线</span></td>
+                    <td>0.5s</td>
+                    <td><a href="#" class="button">开始对话</a></td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td>GPT-3.5</td>
+                    <td><span class="status-active">在线</span></td>
+                    <td>0.3s</td>
+                    <td><a href="#" class="button">开始对话</a></td>
+                </tr>
+                <tr>
+                    <td>3</td>
+                    <td>Claude</td>
+                    <td><span class="status-inactive">维护中</span></td>
+                    <td>-</td>
+                    <td><a href="#" class="button" style="opacity: 0.5; pointer-events: none;">暂不可用</a></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div id="footer">
+        © 2024 阿奎GPT. 保留所有权利
+    </div>
 </div>
-
-<script>
-	function updateData() {
-		const table = document.querySelector('.table-container table');
-		if (!table) return;
-
-		fetch(window.location.href)
-			.then(response => response.text())
-			.then(html => {
-				const parser = new DOMParser();
-				const doc = parser.parseFromString(html, 'text/html');
-				const newTable = doc.querySelector('.table-container table');
-				
-				if (newTable && newTable.innerHTML !== table.innerHTML) {
-					table.innerHTML = newTable.innerHTML;
-					
-					const rows = table.getElementsByTagName('tr');
-					for (let row of rows) {
-						row.classList.add('table-row-update');
-						setTimeout(() => {
-							row.classList.remove('table-row-update');
-						}, 1000);
-					}
-				}
-			})
-			.catch(error => console.error('更新失败:', error));
-	}
-
-	document.addEventListener('DOMContentLoaded', () => {
-		setInterval(updateData, 1000);
-	});
-</script>
 </body>
-</html>
+</html> 
