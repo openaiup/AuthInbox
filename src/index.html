@@ -654,46 +654,39 @@ function initParticleEffect() {
 
 // 优化标题粒子动画函数
 function createTitleParticlesAnimation(titleElement, container) {
-    // 简化粒子数量和动画复杂度
-    const particleCount = 400; // 减少粒子数量
-    const duration = 2500; // 适中的动画时长
+    // 增加粒子数量，但保持性能
+    const particleCount = 800; // 增加到800个粒子
+    const duration = 2500;
     const particles = [];
     
-    // 获取标题位置
+    // 获取标题位置和尺寸
     const rect = titleElement.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
+    
+    // 优化粒子分布
+    const gridSize = 10; // 网格大小，用于更均匀的分布
+    const cols = Math.floor(width / gridSize);
+    const rows = Math.floor(height / gridSize);
     
     // 创建粒子
     for (let i = 0; i < particleCount; i++) {
         const particle = document.createElement('div');
         particle.className = 'title-particle';
         
-        // 计算目标位置（简化为矩形区域）
-        const targetX = rect.left + (Math.random() * width);
-        const targetY = rect.top + (Math.random() * height);
+        // 使用网格系统计算目标位置，确保更均匀的覆盖
+        const col = i % cols;
+        const row = Math.floor((i / cols) % rows);
+        const targetX = rect.left + (col * gridSize) + (Math.random() * gridSize);
+        const targetY = rect.top + (row * gridSize) + (Math.random() * gridSize);
         
-        // 随机起始位置（在页面四周）
+        // 优化起始位置分布
         let startX, startY;
-        const side = Math.floor(Math.random() * 4);
-        switch(side) {
-            case 0: // 上
-                startX = Math.random() * window.innerWidth;
-                startY = -20;
-                break;
-            case 1: // 右
-                startX = window.innerWidth + 20;
-                startY = Math.random() * window.innerHeight;
-                break;
-            case 2: // 下
-                startX = Math.random() * window.innerWidth;
-                startY = window.innerHeight + 20;
-                break;
-            case 3: // 左
-                startX = -20;
-                startY = Math.random() * window.innerHeight;
-                break;
-        }
+        const angle = (i / particleCount) * Math.PI * 2; // 均匀的角度分布
+        const distance = Math.random() * 200 + 100; // 100-300px的随机距离
+        
+        startX = rect.left + width/2 + Math.cos(angle) * distance;
+        startY = rect.top + height/2 + Math.sin(angle) * distance;
         
         // 设置粒子样式
         particle.style.cssText = `
@@ -705,6 +698,7 @@ function createTitleParticlesAnimation(titleElement, container) {
             left: ${startX}px;
             top: ${startY}px;
             opacity: 0;
+            border-radius: 50%;
         `;
         
         document.body.appendChild(particle);
@@ -715,7 +709,7 @@ function createTitleParticlesAnimation(titleElement, container) {
             startY,
             targetX,
             targetY,
-            delay: Math.random() * 500 // 随机延迟
+            delay: Math.random() * 300 // 减少延迟时间，使动画更连贯
         });
     }
     
@@ -731,7 +725,7 @@ function createTitleParticlesAnimation(titleElement, container) {
             if (elapsed < p.delay) return;
             
             const particleProgress = Math.min(1, (elapsed - p.delay) / (duration - p.delay));
-            const ease = easeOutQuad(particleProgress);
+            const ease = easeOutCubic(particleProgress); // 使用更平滑的缓动函数
             
             const x = p.startX + (p.targetX - p.startX) * ease;
             const y = p.startY + (p.targetY - p.startY) * ease;
@@ -743,22 +737,28 @@ function createTitleParticlesAnimation(titleElement, container) {
         if (progress < 1) {
             requestAnimationFrame(animate);
         } else {
-            // 动画结束，显示标题
-            titleElement.style.opacity = '1';
+            // 平滑过渡到标题
+            titleElement.style.opacity = '0';
             titleElement.classList.add('active');
             
-            // 清理粒子
+            // 使用交错过渡
             setTimeout(() => {
-                particles.forEach(p => {
-                    p.element.style.opacity = '0';
-                    setTimeout(() => p.element.remove(), 300);
+                titleElement.style.opacity = '1';
+                
+                // 平滑清理粒子
+                particles.forEach((p, i) => {
+                    setTimeout(() => {
+                        p.element.style.opacity = '0';
+                        setTimeout(() => p.element.remove(), 300);
+                    }, i * 0.5); // 添加微小的交错效果
                 });
             }, 100);
         }
     }
     
-    function easeOutQuad(t) {
-        return t * (2 - t);
+    // 使用更平滑的缓动函数
+    function easeOutCubic(t) {
+        return 1 - Math.pow(1 - t, 3);
     }
     
     animate();
