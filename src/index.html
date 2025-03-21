@@ -6,99 +6,155 @@
     <title>阿奎GPT欢迎您</title>
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #3a86ff;
+            --secondary-color: #8338ec;
+            --success-color: #4CAF50;
+            --background-color: #0a1929;
+            --surface-color: rgba(255, 255, 255, 0.05);
+            --text-color: #ffffff;
+            --border-color: rgba(255, 255, 255, 0.1);
+        }
+
         body {
             font-family: 'Open Sans', sans-serif;
-            background-color: #1a1a1a;
-            color: #ffffff;
+            background: linear-gradient(135deg, var(--background-color), #1a1a2e);
+            color: var(--text-color);
             margin: 0;
             padding: 20px;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
         }
+
         .container {
             flex-grow: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
         }
+
         h1 {
             text-align: center;
-            color: #61dafb;
+            color: var(--primary-color);
             margin-bottom: 30px;
             font-size: 2.5em;
+            text-shadow: 0 0 20px rgba(58, 134, 255, 0.3);
+            transition: all 0.3s ease;
         }
+
+        h1:hover {
+            text-shadow: 0 0 30px rgba(58, 134, 255, 0.5);
+            transform: scale(1.02);
+        }
+
         .table-container {
-            overflow-x: auto;
+            overflow: hidden;
             margin: 0 auto;
-            background-color: #2a2a2a;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            background: var(--surface-color);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
         }
+
+        .table-container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+        }
+
         table {
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
         }
+
         th {
-            background-color: #333;
-            color: #61dafb;
+            background: rgba(58, 134, 255, 0.1);
+            color: var(--primary-color);
             padding: 15px;
             text-align: left;
             font-weight: bold;
-            border-bottom: 2px solid #444;
+            border-bottom: 2px solid var(--border-color);
+            transition: all 0.3s ease;
         }
+
         td {
-            padding: 12px 15px;
-            border-bottom: 1px solid #444;
-            color: #ffffff;
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-color);
             position: relative;
+            transition: all 0.3s ease;
         }
+
+        tr {
+            transition: all 0.3s ease;
+        }
+
         tr:hover {
-            background-color: #3a3a3a;
+            background: rgba(255, 255, 255, 0.05);
         }
-        a {
-            color: #61dafb;
-            text-decoration: none;
+
+        tr:hover td {
+            color: var(--primary-color);
         }
-        a:hover {
-            text-decoration: underline;
-        }
-        #footer {
-            text-align: center;
-            padding: 20px 0;
-            color: #888;
-        }
+
         .copy-btn {
-            background-color: #61dafb;
-            color: #1a1a1a;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
             border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
+            padding: 8px 16px;
+            border-radius: 8px;
             cursor: pointer;
             margin-left: 10px;
             font-size: 0.9em;
-            transition: background-color 0.2s;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(58, 134, 255, 0.2);
         }
+
         .copy-btn:hover {
-            background-color: #4fa8c6;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(58, 134, 255, 0.3);
         }
+
+        .copy-btn:active {
+            transform: translateY(0);
+        }
+
         .code-cell {
             display: flex;
             align-items: center;
             justify-content: flex-start;
             gap: 10px;
         }
+
         @keyframes highlightNew {
-            0% { color: #4CAF50; }
-            100% { color: #ffffff; }
+            0% { color: var(--success-color); text-shadow: 0 0 10px rgba(76, 175, 80, 0.5); }
+            100% { color: var(--text-color); text-shadow: none; }
         }
+
         .new-code {
             animation: highlightNew 60s ease-out;
             animation-fill-mode: forwards;
         }
+
         @media (max-width: 600px) {
-            th, td {
+            .container {
                 padding: 10px;
             }
+
+            th, td {
+                padding: 12px;
+            }
+
             h1 {
                 font-size: 2em;
+            }
+
+            .copy-btn {
+                padding: 6px 12px;
             }
         }
     </style>
@@ -217,4 +273,5 @@ setInterval(function() {
 }, 10000);
 </script>
 </body>
+</html> 
 </html> 
