@@ -45,7 +45,9 @@
             pointer-events: none;
             z-index: 9999;
             transition: transform 0.1s;
-            transform: translate(-50%, -50%);
+            will-change: transform;
+            left: 0;
+            top: 0;
         }
 
         .cursor-outline {
@@ -58,7 +60,9 @@
             z-index: 9999;
             transition: transform 0.2s, width 0.2s, height 0.2s;
             transform-origin: center;
-            transform: translate(-50%, -50%);
+            will-change: transform;
+            left: 0;
+            top: 0;
         }
 
         .particle {
@@ -437,14 +441,29 @@ setInterval(function() {
 function initCursorEffect() {
     const cursorDot = document.querySelector('.cursor-dot');
     const cursorOutline = document.querySelector('.cursor-outline');
+    let mouseX = 0, mouseY = 0;
+    let dotX = 0, dotY = 0;
+    let outlineX = 0, outlineY = 0;
     
     window.addEventListener('mousemove', (e) => {
-        const posX = e.clientX;
-        const posY = e.clientY;
-
-        cursorDot.style.transform = `translate(${posX}px, ${posY}px) translate(-50%, -50%)`;
-        cursorOutline.style.transform = `translate(${posX}px, ${posY}px) translate(-50%, -50%)`;
+        mouseX = e.clientX;
+        mouseY = e.clientY;
     });
+
+    function updateCursors() {
+        // 更新内圆点位置
+        dotX += (mouseX - dotX) * 1;
+        dotY += (mouseY - dotY) * 1;
+        cursorDot.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;
+
+        // 更新外圆环位置（添加轻微延迟效果）
+        outlineX += (mouseX - outlineX) * 0.2;
+        outlineY += (mouseY - outlineY) * 0.2;
+        cursorOutline.style.transform = `translate(${outlineX}px, ${outlineY}px) translate(-50%, -50%)`;
+
+        requestAnimationFrame(updateCursors);
+    }
+    updateCursors();
 
     // 鼠标悬停在可点击元素上时的效果
     document.querySelectorAll('button, a').forEach(el => {
