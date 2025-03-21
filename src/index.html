@@ -191,8 +191,12 @@
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
             opacity: 0;
             transform: scale(0.98);
-            transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-                        transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: opacity 0.6s ease-out,
+                        transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            backface-visibility: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            will-change: opacity, transform;
         }
 
         h1.active {
@@ -348,9 +352,10 @@
             position: absolute;
             border-radius: 50%;
             pointer-events: none;
-            transition: transform 1s cubic-bezier(0.34, 1.56, 0.64, 1),
-                        opacity 1s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1),
+                        opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             will-change: transform, opacity;
+            backface-visibility: hidden;
         }
 
         .blur-overlay {
@@ -755,15 +760,12 @@ function createTitleParticlesAnimation(titleElement, container) {
         const elapsed = now - startTime;
         const progress = Math.min(1, elapsed / duration);
         
-        // 使用缓动函数使动画更自然
         const easeProgress = easeInOutCubic(progress);
         
         particles.forEach(p => {
-            // 调整粒子动画时间
             const particleProgress = Math.max(0, Math.min(1, (easeProgress * 2 - p.delay)));
             
             if (particleProgress > 0) {
-                // 使用缓动函数使粒子运动更自然
                 const ease = easeOutBack(particleProgress);
                 const x = p.startX + (p.targetX - p.startX) * ease;
                 const y = p.startY + (p.targetY - p.startY) * ease;
@@ -776,39 +778,32 @@ function createTitleParticlesAnimation(titleElement, container) {
         if (progress < 1) {
             requestAnimationFrame(animate);
         } else {
-            // 平滑过渡到最终效果
-            titleElement.style.transition = 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
-            titleElement.style.opacity = '1';
+            // 修改过渡逻辑，确保文字清晰显示
+            titleElement.style.opacity = '0';
             titleElement.style.transform = 'scale(1)';
+            titleElement.classList.add('active');
             
-            // 延迟添加动态效果，确保过渡平滑
+            // 先让粒子完全聚合
             setTimeout(() => {
-                titleElement.style.animation = 'glow 3s ease-in-out infinite, gradientText 6s linear infinite';
-                titleElement.classList.add('active');
-            }, 400);
-            
-            // 平滑清理粒子
-            setTimeout(() => {
+                // 清理粒子
                 particles.forEach(p => {
-                    p.element.style.transition = 'opacity 0.8s ease-out';
+                    p.element.style.transition = 'opacity 0.4s ease-out';
                     p.element.style.opacity = '0';
-                    setTimeout(() => p.element.remove(), 800);
                 });
-            }, 600);
+                
+                // 显示清晰的标题
+                titleElement.style.transition = 'opacity 0.6s ease-out';
+                titleElement.style.opacity = '1';
+                
+                // 启动动态效果
+                titleElement.style.animation = 'glow 3s ease-in-out infinite, gradientText 6s linear infinite';
+                
+                // 最后移除粒子
+                setTimeout(() => {
+                    particles.forEach(p => p.element.remove());
+                }, 400);
+            }, 200);
         }
-    }
-    
-    // 添加缓动函数
-    function easeInOutCubic(t) {
-        return t < 0.5
-            ? 4 * t * t * t
-            : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    }
-    
-    function easeOutBack(t) {
-        const c1 = 1.70158;
-        const c3 = c1 + 1;
-        return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
     }
     
     animate();
