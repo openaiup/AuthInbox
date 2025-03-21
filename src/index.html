@@ -175,11 +175,9 @@
             font-size: 3.2em;
             font-weight: 800;
             letter-spacing: 3px;
-            position: absolute;
+            position: relative;
             padding: 15px 0;
             width: 100%;
-            left: 0;
-            top: 50%;
             background: linear-gradient(
                 120deg,
                 var(--primary-color) 0%,
@@ -193,7 +191,7 @@
             text-transform: uppercase;
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
             opacity: 0;
-            transform: translate(0, -50%) scale(2);
+            transform: translateY(50vh) scale(2);
             animation: titleEnter 3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
             z-index: 1000;
         }
@@ -201,26 +199,26 @@
         @keyframes titleEnter {
             0% {
                 opacity: 0;
-                transform: translate(0, -50%) scale(2);
+                transform: translateY(50vh) scale(2);
                 filter: blur(20px) brightness(2);
                 letter-spacing: 20px;
             }
             20% {
                 opacity: 1;
-                transform: translate(0, -50%) scale(2);
+                transform: translateY(40vh) scale(2);
                 filter: blur(0) brightness(1.5);
             }
             40% {
-                transform: translate(0, -50%) scale(1.5);
+                transform: translateY(30vh) scale(1.5);
                 letter-spacing: 10px;
                 filter: blur(0) brightness(1.2);
             }
             60% {
-                transform: translate(0, -50%) scale(1.2);
+                transform: translateY(20vh) scale(1.2);
                 letter-spacing: 5px;
             }
             100% {
-                transform: translate(0, 50px) scale(1);
+                transform: translateY(0) scale(1);
                 letter-spacing: 3px;
                 filter: blur(0) brightness(1);
             }
