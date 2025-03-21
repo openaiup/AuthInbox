@@ -85,6 +85,13 @@
             justify-content: flex-start;
             gap: 10px;
         }
+        @keyframes highlightNew {
+            0% { color: #4CAF50; }
+            100% { color: #ffffff; }
+        }
+        .new-code {
+            animation: highlightNew 60s ease-out;
+        }
         @media (max-width: 600px) {
             th, td {
                 padding: 10px;
@@ -107,6 +114,9 @@
 </div>
 
 <script>
+// 存储上一次的验证码
+let previousCodes = new Set();
+
 // 复制功能
 function copyToClipboard(text, btn) {
     // 创建临时输入框
@@ -140,17 +150,24 @@ function copyToClipboard(text, btn) {
 // 添加复制按钮到验证码单元格
 function addCopyButtons() {
     const cells = document.querySelectorAll('#data-table td');
+    const currentCodes = new Set();
+    
     cells.forEach(cell => {
         if (cell.textContent.trim().match(/^\d+$/)) {  // 如果单元格内容是纯数字
             const code = cell.textContent.trim();
+            currentCodes.add(code);
+            const isNew = !previousCodes.has(code);
             cell.innerHTML = `
                 <div class="code-cell">
-                    <span>${code}</span>
+                    <span class="${isNew ? 'new-code' : ''}">${code}</span>
                     <button class="copy-btn" onclick="copyToClipboard('${code}', this)">复制</button>
                 </div>
             `;
         }
     });
+    
+    // 更新之前的验证码记录
+    previousCodes = currentCodes;
 }
 
 // 每10秒自动获取新数据
