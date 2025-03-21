@@ -191,8 +191,13 @@
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
             opacity: 0;
             transform: scale(0.98);
-            animation: none;
-            transition: opacity 0.5s ease, transform 0.5s ease;
+            transition: opacity 1s ease, transform 1s ease, filter 1s ease;
+        }
+
+        h1.active {
+            opacity: 1;
+            transform: scale(1);
+            animation: gradientText 6s linear infinite;
         }
 
         h1::before {
@@ -344,8 +349,32 @@
             opacity: 0;
             z-index: 100;
             pointer-events: none;
-            will-change: transform, opacity;
+            will-change: transform, opacity, left, top;
             box-shadow: 0 0 8px var(--primary-color);
+            transition: box-shadow 0.3s ease;
+        }
+
+        .blur-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 101;
+            opacity: 0;
+            backdrop-filter: blur(20px);
+            transition: opacity 0.5s ease;
+        }
+
+        .glow-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 90;
         }
 
         @media (max-width: 600px) {
@@ -630,58 +659,122 @@ function initParticleEffect() {
     });
 }
 
-// 创建标题粒子动画
+// 优化标题粒子动画函数
 function createTitleParticlesAnimation(titleElement, container) {
-    // 获取标题位置
+    // 获取标题位置和尺寸
     const titleRect = titleElement.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
     
-    // 创建一个临时canvas来获取文字像素点
+    // 创建辉光效果容器
+    const glowContainer = document.createElement('div');
+    glowContainer.className = 'glow-container';
+    container.appendChild(glowContainer);
+    
+    // 创建临时canvas获取文字像素
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
-    canvas.width = titleRect.width;
-    canvas.height = titleRect.height;
+    // 增加分辨率以提高清晰度
+    const pixelRatio = window.devicePixelRatio || 1;
+    canvas.width = titleRect.width * pixelRatio * 1.2;
+    canvas.height = titleRect.height * pixelRatio * 1.5;
     
-    // 设置与标题相同的文字样式
+    // 设置字体样式
     const titleStyle = window.getComputedStyle(titleElement);
-    const fontSize = parseInt(titleStyle.fontSize);
-    ctx.font = `${titleStyle.fontWeight} ${fontSize}px ${titleStyle.fontFamily}`;
+    const fontSize = parseInt(titleStyle.fontSize) * pixelRatio;
+    ctx.font = `800 ${fontSize}px 'Open Sans', sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#ffffff';
     
-    // 绘制文本到canvas
-    const text = titleElement.textContent.toUpperCase(); // 与CSS中的text-transform匹配
+    // 使用黑色背景和明亮的文字增加对比度
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // 添加发光效果使边缘更明显
+    ctx.shadowColor = 'rgba(0, 212, 255, 0.8)';
+    ctx.shadowBlur = 5;
+    ctx.fillStyle = '#fff';
+    
+    // 绘制文字
+    const text = titleElement.textContent.toUpperCase();
     ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+    
+    // 尝试绘制下划线增加特征
+    const underlineY = canvas.height / 2 + fontSize / 2 + 10;
+    ctx.fillRect(canvas.width * 0.2, underlineY, canvas.width * 0.6, 3);
     
     // 获取像素数据
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const pixels = imageData.data;
     const particlePositions = [];
     
-    // 采样间隔 - 控制粒子密度
-    const sampleInterval = 4;
+    // 较密集的采样以提高清晰度
+    const sampleInterval = Math.max(2, Math.floor(3 / pixelRatio));
     
-    // 找出文字的像素位置
+    // 收集像素位置
     for (let y = 0; y < canvas.height; y += sampleInterval) {
         for (let x = 0; x < canvas.width; x += sampleInterval) {
             const i = (y * canvas.width + x) * 4;
-            // 查找非透明像素
-            if (pixels[i + 3] > 50) {
+            
+            // 降低亮度阈值以获取更多边缘像素
+            if (pixels[i] > 30 || pixels[i+1] > 30 || pixels[i+2] > 30) {
+                // 转换回实际位置
                 particlePositions.push({
-                    x: x + titleRect.left - containerRect.left,
-                    y: y + titleRect.top - containerRect.top
+                    x: x / pixelRatio / 1.2 + titleRect.left - containerRect.left,
+                    y: y / pixelRatio / 1.5 + titleRect.top - containerRect.top
                 });
             }
         }
     }
     
-    // 限制粒子数量避免性能问题
-    const maxParticles = 700;
-    const positions = particlePositions.length > maxParticles
-        ? particlePositions.sort(() => 0.5 - Math.random()).slice(0, maxParticles)
-        : particlePositions;
+    // 增加粒子数量以提高清晰度
+    const maxParticles = 1000;
+    let positions;
+    
+    if (particlePositions.length > maxParticles) {
+        // 按区域加权随机选择粒子，确保覆盖所有重要区域
+        positions = [];
+        const gridSize = 20;
+        const grid = {};
+        
+        // 按网格分配粒子
+        particlePositions.forEach(pos => {
+            const gridX = Math.floor(pos.x / gridSize);
+            const gridY = Math.floor(pos.y / gridSize);
+            const key = `${gridX},${gridY}`;
+            
+            if (!grid[key]) grid[key] = [];
+            grid[key].push(pos);
+        });
+        
+        // 从每个网格区域取样
+        Object.values(grid).forEach(cellParticles => {
+            // 计算每个网格应选取的粒子数量
+            const toSelect = Math.ceil((cellParticles.length / particlePositions.length) * maxParticles);
+            
+            // 随机选择并添加到结果中
+            for (let i = 0; i < Math.min(toSelect, cellParticles.length); i++) {
+                const randomIndex = Math.floor(Math.random() * cellParticles.length);
+                positions.push(cellParticles[randomIndex]);
+                cellParticles.splice(randomIndex, 1);
+            }
+        });
+    } else {
+        positions = particlePositions;
+    }
+    
+    // 确保足够的粒子数量
+    if (positions.length < 500) {
+        // 复制现有粒子并略微偏移位置
+        const originalCount = positions.length;
+        for (let i = 0; i < Math.min(originalCount, 500 - positions.length); i++) {
+            const original = positions[i % originalCount];
+            positions.push({
+                x: original.x + (Math.random() - 0.5) * 3,
+                y: original.y + (Math.random() - 0.5) * 3
+            });
+        }
+    }
     
     // 创建粒子
     const particles = [];
@@ -690,42 +783,85 @@ function createTitleParticlesAnimation(titleElement, container) {
     const centerX = windowWidth / 2;
     const centerY = windowHeight / 2;
     
-    // 粒子组
+    // 改进粒子组，确保更好的可见性
     const particleGroups = [
-        { size: [2.5, 4], color: [180, 210], delay: [0, 0.8], speed: 0.9, opacity: [0.7, 0.9] },  // 蓝色主粒子
-        { size: [1.5, 3], color: [200, 240], delay: [0.3, 1.2], speed: 0.85, opacity: [0.6, 0.8] }, // 青色次粒子
-        { size: [1, 2], color: [220, 280], delay: [0.5, 1.5], speed: 0.8, opacity: [0.5, 0.7] }  // 紫色微粒子
+        { size: [3, 4.5], color: [190, 210], delay: [0, 0.6], speed: 0.85, opacity: [0.8, 1.0] },  // 蓝色主粒子
+        { size: [2, 3.5], color: [200, 230], delay: [0.2, 0.8], speed: 0.9, opacity: [0.7, 0.9] },  // 青色粒子
+        { size: [1.5, 2.5], color: [220, 260], delay: [0.4, 1.0], speed: 0.95, opacity: [0.6, 0.8] } // 紫色微粒子
     ];
     
+    // 处理粒子到屏幕边缘的初始分布
+    const edges = [
+        {x: 0, y: Math.random() * windowHeight}, // 左边
+        {x: windowWidth, y: Math.random() * windowHeight}, // 右边
+        {x: Math.random() * windowWidth, y: 0}, // 上边
+        {x: Math.random() * windowWidth, y: windowHeight} // 下边
+    ];
+    
+    // 为每个位置创建粒子
     positions.forEach((pos, index) => {
-        // 随机选择粒子组
+        // 从适合的组中选择粒子类型
         const group = particleGroups[Math.floor(Math.random() * particleGroups.length)];
         
         // 创建粒子元素
         const particle = document.createElement('div');
         particle.className = 'title-particle';
         
-        // 随机起始位置 - 从屏幕四周飞向标题
-        const angle = Math.random() * Math.PI * 2;
-        const distance = Math.random() * 300 + 200;
-        const startX = centerX + Math.cos(angle) * distance;
-        const startY = centerY + Math.sin(angle) * distance;
+        // 优化初始位置 - 更自然的分布
+        let startX, startY;
         
-        // 随机属性
+        if (index % 5 === 0) {
+            // 从屏幕边缘开始
+            const edge = edges[Math.floor(Math.random() * edges.length)];
+            startX = edge.x;
+            startY = edge.y;
+        } else if (index % 5 === 1) {
+            // 从鼠标位置爆发（如果有）
+            const mouseX = window.mouseX || centerX;
+            const mouseY = window.mouseY || centerY;
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * 50 + 20;
+            startX = mouseX + Math.cos(angle) * distance;
+            startY = mouseY + Math.sin(angle) * distance;
+        } else {
+            // 从半径外围向内飞行
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * 200 + 300;
+            startX = centerX + Math.cos(angle) * distance;
+            startY = centerY + Math.sin(angle) * distance;
+        }
+        
+        // 确保在屏幕范围内
+        startX = Math.max(0, Math.min(windowWidth, startX));
+        startY = Math.max(0, Math.min(windowHeight, startY));
+        
+        // 设置粒子属性
         const size = Math.random() * (group.size[1] - group.size[0]) + group.size[0];
-        const delay = Math.random() * (group.delay[1] - group.delay[0]) + group.delay[0];
-        const finalOpacity = Math.random() * (group.opacity[1] - group.opacity[0]) + group.opacity[0];
         
-        // 随机色调
+        // 创建层次感，字母主干粒子更大更亮
+        const isKeyParticle = index % 4 === 0;
+        const actualSize = isKeyParticle ? size * 1.3 : size;
+        
+        // 随机延迟，创造更自然的流动感
+        const delay = Math.random() * (group.delay[1] - group.delay[0]) + group.delay[0];
+        
+        // 透明度，关键位置更高
+        const finalOpacity = isKeyParticle ? 
+            1.0 : 
+            Math.random() * (group.opacity[1] - group.opacity[0]) + group.opacity[0];
+        
+        // 随机色调，但保持在蓝色/青色范围
         const hue = Math.random() * (group.color[1] - group.color[0]) + group.color[0];
         
-        // 设置初始样式
-        particle.style.width = `${size}px`;
-        particle.style.height = `${size}px`;
+        // 应用样式
+        particle.style.width = `${actualSize}px`;
+        particle.style.height = `${actualSize}px`;
         particle.style.left = `${startX}px`;
         particle.style.top = `${startY}px`;
         particle.style.backgroundColor = `hsl(${hue}, 100%, 70%)`;
-        particle.style.boxShadow = `0 0 ${size * 2}px hsl(${hue}, 100%, 70%)`;
+        particle.style.boxShadow = isKeyParticle ? 
+            `0 0 ${actualSize * 3}px hsl(${hue}, 100%, 70%)` : 
+            `0 0 ${actualSize * 2}px hsl(${hue}, 100%, 70%)`;
         
         // 添加到容器
         container.appendChild(particle);
@@ -739,63 +875,77 @@ function createTitleParticlesAnimation(titleElement, container) {
             targetY: pos.y,
             delay,
             speed: group.speed,
-            size,
+            size: actualSize,
             hue,
-            finalOpacity
+            finalOpacity,
+            isKeyParticle
         });
     });
     
     // 执行动画
-    const totalDuration = 3000; // 3秒动画
+    const totalDuration = 3500; // 时间延长到3.5秒，更自然
     const startTime = performance.now();
     
+    // 创建模糊叠加效果，模拟粒子聚合过程中的模糊形态
+    const blurOverlay = document.createElement('div');
+    blurOverlay.className = 'blur-overlay';
+    container.appendChild(blurOverlay);
+    
+    // 动画函数
     function animate() {
         const now = performance.now();
         const elapsed = now - startTime;
         const progress = Math.min(1, elapsed / totalDuration);
         
+        // 模糊效果控制 - 开始时强烈，然后逐渐消失
+        if (progress < 0.6) {
+            blurOverlay.style.opacity = 0.3 - progress * 0.5;
+        } else if (progress >= 0.6 && blurOverlay.style.opacity !== '0') {
+            blurOverlay.style.opacity = '0';
+        }
+        
         // 动画结束条件
         if (progress >= 1) {
-            // 显示实际标题
-            titleElement.style.opacity = '1';
-            titleElement.style.transform = 'scale(1)';
-            
-            // 启动标题动画
-            setTimeout(() => {
-                titleElement.style.animation = 'gradientText 6s linear infinite';
-                const beforePseudo = document.createElement('style');
-                beforePseudo.textContent = `
-                    h1::before {
-                        opacity: 0.5;
-                        animation: scanline 2s linear infinite;
-                    }
-                `;
-                document.head.appendChild(beforePseudo);
-            }, 300);
-            
-            // 粒子爆炸效果
+            // 让所有粒子稳定在最终位置
             particles.forEach(p => {
-                // 随机爆炸方向
-                const explodeAngle = Math.random() * Math.PI * 2;
-                const explodeDistance = Math.random() * 50 + 20;
-                const explodeX = p.targetX + Math.cos(explodeAngle) * explodeDistance;
-                const explodeY = p.targetY + Math.sin(explodeAngle) * explodeDistance;
-                
-                p.element.style.transition = 'all 0.6s cubic-bezier(0.165, 0.84, 0.44, 1)';
-                p.element.style.left = `${explodeX}px`;
-                p.element.style.top = `${explodeY}px`;
-                p.element.style.opacity = '0';
-                p.element.style.transform = 'scale(0.2)';
+                p.element.style.left = `${p.targetX}px`;
+                p.element.style.top = `${p.targetY}px`;
+                p.element.style.opacity = p.finalOpacity;
             });
             
-            // 清理粒子
+            // 等待粒子稳定，然后淡入实际标题
             setTimeout(() => {
-                particles.forEach(p => {
-                    if (p.element.parentNode) {
-                        p.element.parentNode.removeChild(p.element);
-                    }
-                });
-            }, 600);
+                // 使用标题的CSS类激活它
+                titleElement.classList.add('active');
+                
+                // 添加扫描线和其他效果
+                setTimeout(() => {
+                    const beforePseudo = document.createElement('style');
+                    beforePseudo.textContent = `
+                        h1::before {
+                            opacity: 0.5;
+                            animation: scanline 2s linear infinite;
+                        }
+                    `;
+                    document.head.appendChild(beforePseudo);
+                    
+                    // 粒子淡出
+                    particles.forEach(p => {
+                        p.element.style.transition = 'opacity 1.2s cubic-bezier(0.165, 0.84, 0.44, 1)';
+                        p.element.style.opacity = '0';
+                    });
+                    
+                    // 移除所有粒子
+                    setTimeout(() => {
+                        particles.forEach(p => {
+                            if (p.element.parentNode) {
+                                p.element.parentNode.removeChild(p.element);
+                            }
+                        });
+                        blurOverlay.remove();
+                    }, 1200);
+                }, 200);
+            }, 100);
             
             return;
         }
@@ -812,81 +962,141 @@ function createTitleParticlesAnimation(titleElement, container) {
             const particleDuration = totalDuration * (1.1 - p.speed);
             const particleProgress = Math.min(1, particleElapsed / particleDuration);
             
-            // 缓动函数 - 先快后慢
+            // 改进的缓动函数 - 更自然的物理运动
             let easedProgress;
-            if (particleProgress < 0.7) {
-                // 加速段
-                easedProgress = particleProgress * 1.3;
+            
+            if (particleProgress < 0.3) {
+                // 启动段 - 加速
+                easedProgress = 0.5 * Math.pow(particleProgress / 0.3, 2);
+            } else if (particleProgress < 0.8) {
+                // 巡航段 - 匀速
+                easedProgress = 0.5 + (particleProgress - 0.3) * 0.5 / 0.5;
             } else {
-                // 减速段 - 平滑到达
-                easedProgress = 0.91 + Math.sin((particleProgress - 0.7) * Math.PI / 0.6) * 0.09;
+                // 减速段 - 自然停止
+                const t = (particleProgress - 0.8) / 0.2;
+                easedProgress = 0.5 + 0.5 * (1 - Math.pow(1 - t, 3));
             }
             
-            // 微小抖动 - 提高自然感
-            const wobbleX = Math.sin(particleProgress * 12) * (1 - particleProgress) * 3;
-            const wobbleY = Math.cos(particleProgress * 10) * (1 - particleProgress) * 3;
+            // 自然运动的微小抖动
+            let wobbleFactor = 0;
             
-            // 计算当前位置
-            const currentX = p.startX + (p.targetX - p.startX) * easedProgress + wobbleX;
-            const currentY = p.startY + (p.targetY - p.startY) * easedProgress + wobbleY;
+            if (particleProgress < 0.7) {
+                wobbleFactor = (1 - particleProgress / 0.7) * 5;
+            }
+            
+            const wobbleX = Math.sin(particleProgress * 12) * wobbleFactor;
+            const wobbleY = Math.cos(particleProgress * 10) * wobbleFactor;
+            
+            // 计算当前位置 - 使用二次贝塞尔曲线更自然
+            const t = easedProgress;
+            const invT = 1 - t;
+            
+            // 设置控制点为中心偏上，创造自然弧线
+            const cpX = (p.startX + p.targetX) / 2 + (Math.random() - 0.5) * 50;
+            const cpY = Math.min(p.startY, p.targetY) - Math.abs(p.targetX - p.startX) * 0.2;
+            
+            const currentX = invT * invT * p.startX + 2 * invT * t * cpX + t * t * p.targetX + wobbleX;
+            const currentY = invT * invT * p.startY + 2 * invT * t * cpY + t * t * p.targetY + wobbleY;
             
             // 调整大小和亮度
-            const scaleValue = 0.7 + particleProgress * 0.3;
+            const scaleMultiplier = p.isKeyParticle ? 1.2 : 1.0;
+            const scaleValue = (0.7 + particleProgress * 0.3) * scaleMultiplier;
+            
+            // 透明度曲线 - 快速显现，然后保持
+            const opacityValue = particleProgress < 0.3 ? 
+                (particleProgress / 0.3) * p.finalOpacity : 
+                p.finalOpacity;
             
             // 更新样式
             p.element.style.left = `${currentX}px`;
             p.element.style.top = `${currentY}px`;
-            p.element.style.opacity = p.finalOpacity * (particleProgress < 0.3 ? particleProgress / 0.3 : 1);
+            p.element.style.opacity = opacityValue;
             p.element.style.transform = `scale(${scaleValue})`;
             
             // 接近目标时发光
             if (particleProgress > 0.8) {
                 const brightness = 70 + (particleProgress - 0.8) * 5 * 30;
                 p.element.style.backgroundColor = `hsl(${p.hue}, 100%, ${brightness}%)`;
-                p.element.style.boxShadow = `0 0 ${p.size * 3}px hsl(${p.hue}, 100%, ${brightness}%)`;
+                
+                // 更强的辉光效果
+                if (p.isKeyParticle) {
+                    p.element.style.boxShadow = `0 0 ${p.size * 4}px hsl(${p.hue}, 100%, ${brightness}%)`;
+                } else {
+                    p.element.style.boxShadow = `0 0 ${p.size * 2.5}px hsl(${p.hue}, 100%, ${brightness}%)`;
+                }
+            }
+            
+            // 为关键粒子在快到达时添加辉光痕迹
+            if (p.isKeyParticle && particleProgress > 0.7 && Math.random() > 0.85) {
+                const glowTrail = document.createElement('div');
+                glowTrail.className = 'title-particle';
+                glowTrail.style.width = `${p.size * 0.8}px`;
+                glowTrail.style.height = `${p.size * 0.8}px`;
+                glowTrail.style.left = `${currentX}px`;
+                glowTrail.style.top = `${currentY}px`;
+                glowTrail.style.backgroundColor = `hsl(${p.hue}, 100%, 85%)`;
+                glowTrail.style.boxShadow = `0 0 ${p.size * 2}px hsl(${p.hue}, 100%, 75%)`;
+                glowTrail.style.opacity = '0.7';
+                glowTrail.style.transition = 'all 0.8s ease-out';
+                
+                glowContainer.appendChild(glowTrail);
+                
+                // 淡出辉光痕迹
+                setTimeout(() => {
+                    glowTrail.style.opacity = '0';
+                    glowTrail.style.transform = 'scale(0.5)';
+                    
+                    setTimeout(() => glowTrail.remove(), 800);
+                }, 100);
             }
         });
         
         requestAnimationFrame(animate);
     }
     
-    // 创建闪光效果
-    function createGlowEffect() {
-        const glow = document.createElement('div');
-        glow.style.position = 'absolute';
-        glow.style.left = `${centerX}px`;
-        glow.style.top = `${centerY}px`;
-        glow.style.width = '0';
-        glow.style.height = '0';
-        glow.style.borderRadius = '50%';
-        glow.style.background = `radial-gradient(circle, 
+    // 添加全局鼠标位置跟踪
+    window.addEventListener('mousemove', (e) => {
+        window.mouseX = e.clientX;
+        window.mouseY = e.clientY;
+    });
+    
+    // 启动动画
+    animate();
+    
+    // 粒子完成后的优雅过渡到实体标题
+    setTimeout(() => {
+        // 辉光效果在动画结束前
+        const finalGlow = document.createElement('div');
+        finalGlow.style.position = 'absolute';
+        finalGlow.style.left = '50%';
+        finalGlow.style.top = titleRect.top + titleRect.height / 2 + 'px';
+        finalGlow.style.width = '0';
+        finalGlow.style.height = '0';
+        finalGlow.style.borderRadius = '50%';
+        finalGlow.style.background = `radial-gradient(circle, 
             rgba(0, 212, 255, 0.5) 0%, 
             rgba(112, 0, 255, 0.3) 40%, 
             transparent 70%)`;
-        glow.style.transform = 'translate(-50%, -50%)';
-        glow.style.pointerEvents = 'none';
-        glow.style.zIndex = '50';
-        glow.style.opacity = '0';
-        glow.style.transition = 'all 1s cubic-bezier(0.19, 1, 0.22, 1)';
+        finalGlow.style.transform = 'translate(-50%, -50%)';
+        finalGlow.style.pointerEvents = 'none';
+        finalGlow.style.zIndex = '50';
+        finalGlow.style.opacity = '0';
+        finalGlow.style.transition = 'all 1.5s cubic-bezier(0.19, 1, 0.22, 1)';
         
-        document.body.appendChild(glow);
+        document.body.appendChild(finalGlow);
         
-        // 动画结束时闪光
+        // 动画接近结束时添加辉光
         setTimeout(() => {
-            glow.style.width = '600px';
-            glow.style.height = '600px';
-            glow.style.opacity = '0.8';
+            finalGlow.style.width = titleRect.width * 1.5 + 'px';
+            finalGlow.style.height = titleRect.height * 3 + 'px';
+            finalGlow.style.opacity = '0.8';
             
             setTimeout(() => {
-                glow.style.opacity = '0';
-                setTimeout(() => glow.remove(), 1000);
-            }, 700);
-        }, totalDuration - 200);
-    }
-    
-    // 启动动画
-    createGlowEffect();
-    animate();
+                finalGlow.style.opacity = '0';
+                setTimeout(() => finalGlow.remove(), 1500);
+            }, 1000);
+        }, totalDuration - 400);
+    }, 200);
 }
 </script>
 </body>
