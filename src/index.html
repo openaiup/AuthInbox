@@ -99,20 +99,33 @@
 
 <script>
 	function updateData() {
-		const tableBody = document.getElementById('tableBody');
-		if (!tableBody) return;
+		const table = document.querySelector('.table-container table');
+		if (!table) return;
 
-		const rows = tableBody.getElementsByTagName('tr');
-		for (let row of rows) {
-			row.classList.add('table-row-update');
-			setTimeout(() => {
-				row.classList.remove('table-row-update');
-			}, 1000);
-		}
+		fetch(window.location.href)
+			.then(response => response.text())
+			.then(html => {
+				const parser = new DOMParser();
+				const doc = parser.parseFromString(html, 'text/html');
+				const newTable = doc.querySelector('.table-container table');
+				
+				if (newTable && newTable.innerHTML !== table.innerHTML) {
+					table.innerHTML = newTable.innerHTML;
+					
+					const rows = table.getElementsByTagName('tr');
+					for (let row of rows) {
+						row.classList.add('table-row-update');
+						setTimeout(() => {
+							row.classList.remove('table-row-update');
+						}, 1000);
+					}
+				}
+			})
+			.catch(error => console.error('更新失败:', error));
 	}
 
 	document.addEventListener('DOMContentLoaded', () => {
-		setInterval(updateData, 5000);
+		setInterval(updateData, 1000);
 	});
 </script>
 </body>
