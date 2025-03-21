@@ -91,6 +91,7 @@
         }
         .new-code {
             animation: highlightNew 60s ease-out;
+            animation-fill-mode: forwards;
         }
         @media (max-width: 600px) {
             th, td {
@@ -183,11 +184,30 @@ setInterval(function() {
             const temp = document.createElement('div');
             temp.innerHTML = html;
             
-            // 获取新的表格内容
-            const newTable = temp.querySelector('#data-table').innerHTML;
+            // 获取新的表格内容中的所有验证码
+            const newCodes = new Set();
+            temp.querySelectorAll('#data-table td').forEach(cell => {
+                if (cell.textContent.trim().match(/^\d+$/)) {
+                    newCodes.add(cell.textContent.trim());
+                }
+            });
             
-            // 更新当前表格内容
-            document.getElementById('data-table').innerHTML = newTable;
+            // 更新当前表格内容，保持已有的动画效果
+            const currentTable = document.getElementById('data-table');
+            const currentCells = currentTable.getElementsByTagName('td');
+            Array.from(currentCells).forEach(cell => {
+                const codeSpan = cell.querySelector('span');
+                if (codeSpan) {
+                    const currentCode = codeSpan.textContent.trim();
+                    if (!previousCodes.has(currentCode) && newCodes.has(currentCode)) {
+                        // 保持新验证码的动画效果
+                        codeSpan.className = 'new-code';
+                    }
+                }
+            });
+            
+            // 更新验证码记录
+            previousCodes = newCodes;
             
             // 重新添加复制按钮
             addCopyButtons();
