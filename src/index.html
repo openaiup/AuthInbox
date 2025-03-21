@@ -64,12 +64,6 @@
             padding: 20px 0;
             color: #888;
         }
-        .refresh-status {
-            text-align: center;
-            color: #888;
-            margin-bottom: 10px;
-            font-size: 0.9em;
-        }
         @media (max-width: 600px) {
             th, td {
                 padding: 10px;
@@ -83,7 +77,6 @@
 <body>
 <div class="container">
     <h1>阿奎GPT欢迎您</h1>
-    <div class="refresh-status">上次更新时间: <span id="last-update">-</span></div>
     <div class="table-container">
         <table id="data-table">
             {{TABLE_HEADERS}}
@@ -93,48 +86,26 @@
 </div>
 
 <script>
-// 自动刷新间隔（毫秒）
-const REFRESH_INTERVAL = 10000; // 10秒
-
-// 更新时间显示
-function updateLastUpdateTime() {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString('zh-CN');
-    document.getElementById('last-update').textContent = timeString;
-}
-
-// 刷新数据
-async function refreshData() {
-    try {
-        const response = await fetch('/get-verification-codes'); // 替换为您的API端点
-        const data = await response.json();
-        
-        // 更新表格内容
-        const table = document.getElementById('data-table');
-        // 这里需要根据您的数据结构来更新表格
-        // ...
-
-        // 更新刷新时间
-        updateLastUpdateTime();
-    } catch (error) {
-        console.error('获取数据失败:', error);
-    }
-}
-
-// 页面加载完成后开始自动刷新
-document.addEventListener('DOMContentLoaded', () => {
-    // 立即执行一次刷新
-    refreshData();
-    
-    // 设置定时刷新
-    setInterval(refreshData, REFRESH_INTERVAL);
-});
-</script>
-
-<script>
-// 每10秒自动刷新页面
+// 每10秒自动获取新数据
 setInterval(function() {
-    location.reload();
+    // 获取当前页面的URL
+    const currentUrl = window.location.href;
+    
+    // 使用fetch获取新数据
+    fetch(currentUrl)
+        .then(response => response.text())
+        .then(html => {
+            // 创建一个临时的div来解析HTML
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            
+            // 获取新的表格内容
+            const newTable = temp.querySelector('#data-table').innerHTML;
+            
+            // 更新当前表格内容
+            document.getElementById('data-table').innerHTML = newTable;
+        })
+        .catch(error => console.error('刷新失败:', error));
 }, 10000);
 </script>
 </body>
