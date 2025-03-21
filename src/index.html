@@ -48,6 +48,7 @@
             padding: 12px 15px;
             border-bottom: 1px solid #444;
             color: #ffffff;
+            position: relative;
         }
         tr:hover {
             background-color: #3a3a3a;
@@ -63,6 +64,25 @@
             text-align: center;
             padding: 20px 0;
             color: #888;
+        }
+        .copy-btn {
+            background-color: #61dafb;
+            color: #1a1a1a;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-size: 0.9em;
+            transition: background-color 0.2s;
+        }
+        .copy-btn:hover {
+            background-color: #4fa8c6;
+        }
+        .code-cell {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
         @media (max-width: 600px) {
             th, td {
@@ -86,6 +106,36 @@
 </div>
 
 <script>
+// 复制功能
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '已复制';
+        setTimeout(() => {
+            btn.textContent = originalText;
+        }, 1000);
+    }).catch(err => {
+        console.error('复制失败:', err);
+    });
+}
+
+// 添加复制按钮到验证码单元格
+function addCopyButtons() {
+    const cells = document.querySelectorAll('#data-table td');
+    cells.forEach(cell => {
+        if (cell.textContent.trim().match(/^\d+$/)) {  // 如果单元格内容是纯数字
+            const code = cell.textContent.trim();
+            cell.innerHTML = `
+                <div class="code-cell">
+                    <span>${code}</span>
+                    <button class="copy-btn" onclick="copyToClipboard('${code}')">复制</button>
+                </div>
+            `;
+        }
+    });
+}
+
 // 每10秒自动获取新数据
 setInterval(function() {
     // 获取当前页面的URL
@@ -104,9 +154,15 @@ setInterval(function() {
             
             // 更新当前表格内容
             document.getElementById('data-table').innerHTML = newTable;
+            
+            // 重新添加复制按钮
+            addCopyButtons();
         })
         .catch(error => console.error('刷新失败:', error));
 }, 10000);
+
+// 页面加载完成后添加复制按钮
+document.addEventListener('DOMContentLoaded', addCopyButtons);
 </script>
 </body>
 </html> 
