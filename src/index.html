@@ -111,12 +111,14 @@
 
         @keyframes particleAnimation {
             0% { transform: translate(0, 0) scale(1); opacity: 0.8; }
+            70% { opacity: 0.5; }
             100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
         }
 
         @keyframes microParticleAnimation {
             0% { transform: translate(var(--sx), var(--sy)) scale(0); opacity: 0; }
-            50% { transform: translate(var(--mx), var(--my)) scale(1); opacity: 0.6; }
+            30% { transform: translate(var(--mx), var(--my)) scale(1); opacity: 0.6; }
+            70% { transform: translate(var(--mx), var(--my)) scale(1); opacity: 0.4; }
             100% { transform: translate(var(--ex), var(--ey)) scale(0); opacity: 0; }
         }
 
@@ -516,7 +518,7 @@ function createParticle(x, y, isMicroParticle = false) {
         const size = Math.random() * 2 + 1;
         const angle = Math.random() * Math.PI * 2;
         const distance = Math.random() * 30 + 10;
-        const duration = Math.random() * 0.8 + 0.5;
+        const duration = Math.random() * 1.2 + 0.8;
         
         const startX = Math.cos(angle) * 2;
         const startY = Math.sin(angle) * 2;
@@ -551,12 +553,12 @@ function createParticle(x, y, isMicroParticle = false) {
         particle.style.setProperty('--tx', `${tx}px`);
         particle.style.setProperty('--ty', `${ty}px`);
         
-        particle.style.animation = 'particleAnimation 0.8s ease-out forwards';
+        particle.style.animation = 'particleAnimation 1.2s ease-out forwards';
     }
     
     setTimeout(() => {
         document.body.removeChild(particle);
-    }, isMicroParticle ? 1000 : 800);
+    }, isMicroParticle ? 1500 : 1300);
 }
 
 // 鼠标移动时创建粒子
@@ -585,7 +587,7 @@ function initParticleEffect() {
         
         // 创建微粒子
         if (now - lastMicroParticleTime > 10) { // 每10ms创建微粒子
-            for (let i = 0; i < 3; i++) { // 每次创建3个微粒子
+            for (let i = 0; i < 10; i++) { // 每次创建10个微粒子
                 createParticle(e.clientX, e.clientY, true);
             }
             lastMicroParticleTime = now;
