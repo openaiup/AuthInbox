@@ -220,12 +220,10 @@
                 letter-spacing: 5px;
             }
             80% {
-                position: fixed;
-                transform: translate(0, 0) scale(1);
+                transform: translate(0, -120px) scale(1);
                 letter-spacing: 3px;
             }
             100% {
-                position: relative;
                 transform: translate(0, 0) scale(1);
                 letter-spacing: 3px;
                 filter: blur(0) brightness(1);
@@ -465,12 +463,29 @@ document.addEventListener('DOMContentLoaded', function() {
             `<span class="char" style="animation-delay: ${1.5 + i * 0.1}s">${char}</span>`
         ).join('');
 
-        // 3秒后移除fixed定位
+        // 3秒后修改定位方式
         setTimeout(() => {
-            h1.style.position = 'relative';
-            h1.style.width = 'auto';
-            h1.style.top = 'auto';
-            h1.style.left = 'auto';
+            h1.style.cssText = `
+                position: relative;
+                width: 100%;
+                margin-bottom: 40px;
+                font-size: 3.2em;
+                font-weight: 800;
+                letter-spacing: 3px;
+                text-align: center;
+                background: linear-gradient(
+                    120deg,
+                    var(--primary-color) 0%,
+                    var(--secondary-color) 50%,
+                    var(--primary-color) 100%
+                );
+                background-size: 200% auto;
+                -webkit-background-clip: text;
+                background-clip: text;
+                -webkit-text-fill-color: transparent;
+                text-transform: uppercase;
+                filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+            `;
         }, 3000);
     }
 
