@@ -171,11 +171,12 @@
 
         h1 {
             text-align: center;
+            margin-top: 20px;
             margin-bottom: 40px;
             font-size: 3.2em;
             font-weight: 800;
             letter-spacing: 3px;
-            position: relative;
+            position: static;
             padding: 15px 0;
             width: 100%;
             background: linear-gradient(
@@ -190,10 +191,6 @@
             -webkit-text-fill-color: transparent;
             text-transform: uppercase;
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-            opacity: 0;
-            transform: translateY(50vh) scale(2);
-            animation: titleEnter 3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-            z-index: 1000;
         }
 
         @keyframes titleEnter {
@@ -454,33 +451,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const text = h1.textContent;
         h1.setAttribute('data-text', text);
         h1.innerHTML = text.split('').map((char, i) => 
-            `<span class="char" style="animation-delay: ${1.5 + i * 0.1}s">${char}</span>`
+            `<span class="char">${char}</span>`
         ).join('');
-
-        // 3秒后修改定位方式
-        setTimeout(() => {
-            h1.style.cssText = `
-                position: relative;
-                width: 100%;
-                margin-bottom: 40px;
-                font-size: 3.2em;
-                font-weight: 800;
-                letter-spacing: 3px;
-                text-align: center;
-                background: linear-gradient(
-                    120deg,
-                    var(--primary-color) 0%,
-                    var(--secondary-color) 50%,
-                    var(--primary-color) 100%
-                );
-                background-size: 200% auto;
-                -webkit-background-clip: text;
-                background-clip: text;
-                -webkit-text-fill-color: transparent;
-                text-transform: uppercase;
-                filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-            `;
-        }, 3000);
     }
 
     initCursorEffect();
