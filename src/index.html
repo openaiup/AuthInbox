@@ -664,8 +664,8 @@ function initParticleEffect() {
 
 // 优化标题粒子动画函数
 function createTitleParticlesAnimation(titleElement, container) {
-    const particleCount = 1000; // 增加粒子数量
-    const duration = 2800; // 延长动画时间
+    const particleCount = 800; // 稍微减少粒子数量以提高性能
+    const duration = 2400; // 缩短总动画时间
     const particles = [];
     
     const rect = titleElement.getBoundingClientRect();
@@ -705,6 +705,7 @@ function createTitleParticlesAnimation(titleElement, container) {
             opacity: 0;
             border-radius: 50%;
             will-change: transform, opacity;
+            transform-origin: center;
         `;
         
         document.body.appendChild(particle);
@@ -731,16 +732,16 @@ function createTitleParticlesAnimation(titleElement, container) {
             if (elapsed < p.delay) return;
             
             const particleProgress = Math.min(1, (elapsed - p.delay) / (duration - p.delay));
-            const ease = easeOutExpo(particleProgress); // 使用指数缓动函数
+            const ease = easeOutExpo(particleProgress);
             
             const x = p.startX + (p.targetX - p.startX) * ease;
             const y = p.startY + (p.targetY - p.startY) * ease;
             
-            // 添加轻微的波动效果
-            const wobble = Math.sin(elapsed * 0.01 + i) * (1 - ease) * 2;
+            // 减小波动幅度
+            const wobble = Math.sin(elapsed * 0.008 + i) * (1 - ease) * 1.5;
             
             p.element.style.transform = `translate(${x - p.startX}px, ${y - p.startY + wobble}px)`;
-            p.element.style.opacity = particleProgress * (0.4 + p.size * 0.6);
+            p.element.style.opacity = particleProgress * (0.5 + p.size * 0.5);
         });
         
         if (progress < 1) {
@@ -749,24 +750,39 @@ function createTitleParticlesAnimation(titleElement, container) {
             titleElement.style.opacity = '0';
             titleElement.classList.add('active');
             
+            // 优化粒子消失动画
+            const batchSize = 20; // 每批处理的粒子数量
+            const batchDelay = 10; // 每批之间的延迟（毫秒）
+            
+            for (let i = 0; i < particles.length; i += batchSize) {
+                const batch = particles.slice(i, i + batchSize);
+                
+                setTimeout(() => {
+                    batch.forEach(p => {
+                        const randomAngle = Math.random() * Math.PI * 2;
+                        const randomDistance = Math.random() * 50 + 30;
+                        const dx = Math.cos(randomAngle) * randomDistance;
+                        const dy = Math.sin(randomAngle) * randomDistance;
+                        
+                        p.element.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+                        p.element.style.transform = `translate(${dx}px, ${dy}px) scale(0)`;
+                        p.element.style.opacity = '0';
+                        
+                        // 更快地移除元素
+                        setTimeout(() => p.element.remove(), 400);
+                    });
+                }, i / batchSize * batchDelay);
+            }
+            
+            // 标题显示时机调整
             setTimeout(() => {
                 titleElement.style.opacity = '1';
                 titleElement.style.transform = 'scale(1)';
-                
-                // 粒子消失动画
-                particles.forEach((p, i) => {
-                    setTimeout(() => {
-                        p.element.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
-                        p.element.style.opacity = '0';
-                        p.element.style.transform = `translate(${p.targetX - p.startX}px, ${p.targetY - p.startY}px) scale(0)`;
-                        setTimeout(() => p.element.remove(), 600);
-                    }, i * 0.8);
-                });
-            }, 100);
+            }, 200);
         }
     }
     
-    // 使用指数缓动函数获得更自然的动画效果
+    // 优化缓动函数
     function easeOutExpo(t) {
         return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
     }
