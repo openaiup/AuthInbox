@@ -58,25 +58,27 @@
             position: fixed;
             pointer-events: none;
             z-index: 9999;
-            transition: all 0.3s ease;
+            transition: all 0.15s ease;
             will-change: transform;
             left: 0;
             top: 0;
-            opacity: 0.3;
+            opacity: 0;
+            transform: translate(-50%, -50%);
         }
 
         .cursor-outline.main {
             opacity: 1;
-            z-index: 10000;
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
         }
 
-        .cursor-outline.moving {
-            animation: pulseOutline 1s infinite;
+        .cursor-outline.active {
+            opacity: 0.6;
         }
 
-        @keyframes pulseOutline {
-            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-            100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+        .cursor-outline.trail {
+            border: 1.5px solid var(--primary-color);
+            transition: all 0.08s ease;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
         }
 
         .particle {
@@ -461,9 +463,10 @@ function initCursorEffect() {
 
     // 创建额外的光圈
     const outlines = [mainOutline];
-    for (let i = 0; i < 4; i++) {
+    const trailCount = 6; // 增加跟随光圈数量
+    for (let i = 0; i < trailCount; i++) {
         const outline = document.createElement('div');
-        outline.className = 'cursor-outline';
+        outline.className = 'cursor-outline trail';
         document.body.appendChild(outline);
         outlines.push(outline);
     }
@@ -472,32 +475,51 @@ function initCursorEffect() {
     let isMoving = false;
     let moveTimeout;
     let lastX = 0, lastY = 0;
+    let positions = Array(trailCount + 1).fill({ x: 0, y: 0, timestamp: 0 });
+    let lastUpdateTime = 0;
 
     window.addEventListener('mousemove', (e) => {
         mouseX = e.clientX;
         mouseY = e.clientY;
+        const currentTime = performance.now();
+
+        // 更新位置历史
+        positions.pop();
+        positions.unshift({ 
+            x: mouseX, 
+            y: mouseY, 
+            timestamp: currentTime 
+        });
 
         // 检测是否在移动
-        if (Math.abs(lastX - mouseX) > 3 || Math.abs(lastY - mouseY) > 3) {
+        const moveDistance = Math.hypot(lastX - mouseX, lastY - mouseY);
+        const moveSpeed = moveDistance / Math.max(1, currentTime - lastUpdateTime);
+
+        if (moveSpeed > 0.1) { // 根据移动速度调整显示
             isMoving = true;
             clearTimeout(moveTimeout);
             outlines.forEach((outline, index) => {
                 if (index > 0) {
-                    outline.style.opacity = '0.3';
+                    outline.classList.add('active');
+                    // 根据移动速度调整不透明度
+                    const opacity = Math.min(0.6, moveSpeed * 0.3) * (1 - index * 0.15);
+                    outline.style.opacity = opacity.toString();
                 }
             });
+
             moveTimeout = setTimeout(() => {
                 isMoving = false;
                 outlines.forEach((outline, index) => {
                     if (index > 0) {
-                        outline.style.opacity = '0';
+                        outline.classList.remove('active');
                     }
                 });
-            }, 100);
+            }, 150);
         }
 
         lastX = mouseX;
         lastY = mouseY;
+        lastUpdateTime = currentTime;
     });
 
     function updateCursors() {
@@ -507,14 +529,15 @@ function initCursorEffect() {
         // 更新主光圈位置
         mainOutline.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;
 
-        // 更新额外光圈位置
+        // 更新跟随光圈位置
         if (isMoving) {
             outlines.forEach((outline, index) => {
                 if (index > 0) {
-                    const delay = index * 0.1;
-                    const x = mouseX - (mouseX - lastX) * delay;
-                    const y = mouseY - (mouseY - lastY) * delay;
-                    outline.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
+                    const pos = positions[Math.min(index, positions.length - 1)];
+                    const scale = 1 - index * 0.08; // 减小缩放比例
+                    const blur = index * 2; // 添加渐进模糊效果
+                    outline.style.transform = `translate(${pos.x}px, ${pos.y}px) translate(-50%, -50%) scale(${scale})`;
+                    outline.style.filter = `blur(${blur}px)`;
                 }
             });
         }
@@ -530,14 +553,18 @@ function initCursorEffect() {
                 outline.style.width = '50px';
                 outline.style.height = '50px';
                 outline.style.borderColor = 'var(--secondary-color)';
+                outline.style.boxShadow = '0 0 20px rgba(112, 0, 255, 0.4)';
             });
         });
         
         el.addEventListener('mouseleave', () => {
-            outlines.forEach(outline => {
+            outlines.forEach((outline, index) => {
                 outline.style.width = '30px';
                 outline.style.height = '30px';
                 outline.style.borderColor = 'var(--primary-color)';
+                outline.style.boxShadow = index === 0 ? 
+                    '0 0 15px rgba(0, 212, 255, 0.3)' : 
+                    '0 0 10px rgba(0, 212, 255, 0.2)';
             });
         });
     });
