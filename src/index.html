@@ -25,6 +25,51 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            position: relative;
+            overflow-x: hidden;
+            opacity: 0;
+            animation: fadeIn 1s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .cursor-dot {
+            width: 5px;
+            height: 5px;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            transition: transform 0.1s;
+        }
+
+        .cursor-outline {
+            width: 30px;
+            height: 30px;
+            border: 2px solid var(--primary-color);
+            border-radius: 50%;
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            transition: transform 0.2s, width 0.2s, height 0.2s;
+            transform-origin: center;
+        }
+
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            opacity: 0;
+            border-radius: 50%;
+            background: var(--primary-color);
+        }
+
+        @keyframes particleAnimation {
+            0% { transform: translate(0, 0); opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)); opacity: 0; }
         }
 
         .container {
@@ -32,6 +77,7 @@
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
+            position: relative;
         }
 
         @keyframes glow {
@@ -146,11 +192,21 @@
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid var(--border-color);
             transition: all 0.3s ease;
+            opacity: 0;
+            transform: translateY(30px);
+            animation: slideUp 0.8s ease-out forwards;
+            animation-delay: 0.5s;
         }
 
-        .table-container:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+        @keyframes slideUp {
+            from { 
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         table {
@@ -250,6 +306,8 @@
     </style>
 </head>
 <body>
+<div class="cursor-dot"></div>
+<div class="cursor-outline"></div>
 <div class="container">
     <h1>阿奎GPT欢迎您</h1>
     <div class="table-container">
@@ -283,6 +341,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (h1) {
         h1.setAttribute('data-text', h1.textContent);
     }
+
+    initCursorEffect();
+    initParticleEffect();
 });
 
 // 复制功能
@@ -369,6 +430,72 @@ setInterval(function() {
         })
         .catch(error => console.error('刷新失败:', error));
 }, 3000);
+
+// 鼠标跟随效果
+function initCursorEffect() {
+    const cursorDot = document.querySelector('.cursor-dot');
+    const cursorOutline = document.querySelector('.cursor-outline');
+    
+    window.addEventListener('mousemove', (e) => {
+        const posX = e.clientX;
+        const posY = e.clientY;
+
+        cursorDot.style.transform = `translate(${posX}px, ${posY}px)`;
+        cursorOutline.style.transform = `translate(${posX - 15}px, ${posY - 15}px)`;
+    });
+
+    // 鼠标悬停在可点击元素上时的效果
+    document.querySelectorAll('button, a').forEach(el => {
+        el.addEventListener('mouseenter', () => {
+            cursorOutline.style.width = '50px';
+            cursorOutline.style.height = '50px';
+            cursorOutline.style.borderColor = 'var(--secondary-color)';
+        });
+        
+        el.addEventListener('mouseleave', () => {
+            cursorOutline.style.width = '30px';
+            cursorOutline.style.height = '30px';
+            cursorOutline.style.borderColor = 'var(--primary-color)';
+        });
+    });
+}
+
+// 创建粒子效果
+function createParticle(x, y) {
+    const particle = document.createElement('div');
+    particle.className = 'particle';
+    document.body.appendChild(particle);
+
+    const size = Math.random() * 3 + 2;
+    const tx = (Math.random() - 0.5) * 100;
+    const ty = (Math.random() - 0.5) * 100;
+    
+    particle.style.width = `${size}px`;
+    particle.style.height = `${size}px`;
+    particle.style.left = `${x}px`;
+    particle.style.top = `${y}px`;
+    particle.style.setProperty('--tx', `${tx}px`);
+    particle.style.setProperty('--ty', `${ty}px`);
+    
+    particle.style.animation = 'particleAnimation 1s ease-out forwards';
+    
+    setTimeout(() => {
+        document.body.removeChild(particle);
+    }, 1000);
+}
+
+// 鼠标移动时创建粒子
+function initParticleEffect() {
+    let throttleTimer;
+    window.addEventListener('mousemove', (e) => {
+        if (!throttleTimer) {
+            throttleTimer = setTimeout(() => {
+                createParticle(e.clientX, e.clientY);
+                throttleTimer = null;
+            }, 50);
+        }
+    });
+}
 </script>
 </body>
 </html> 
