@@ -168,12 +168,15 @@
         @keyframes gradientText {
             0% {
                 background-position: 0% 50%;
+                filter: brightness(1.2);
             }
             50% {
                 background-position: 100% 50%;
+                filter: brightness(1);
             }
             100% {
                 background-position: 0% 50%;
+                filter: brightness(1.2);
             }
         }
 
@@ -188,10 +191,11 @@
             background: linear-gradient(
                 120deg,
                 var(--primary-color) 0%,
-                var(--secondary-color) 50%,
-                var(--primary-color) 100%
+                var(--secondary-color) 45%,
+                var(--primary-color) 55%,
+                var(--secondary-color) 100%
             );
-            background-size: 200% auto;
+            background-size: 400% auto;
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -203,7 +207,7 @@
         h1.active {
             opacity: 1;
             transform: scale(1);
-            animation: gradientText 6s linear infinite;
+            animation: gradientText 10s linear infinite;
         }
 
         h1::before {
@@ -244,6 +248,22 @@
             );
             opacity: 0.8;
             filter: blur(1px);
+            animation: borderGlow 10s linear infinite;
+        }
+
+        @keyframes borderGlow {
+            0% {
+                filter: blur(1px) brightness(1.2);
+                opacity: 0.8;
+            }
+            50% {
+                filter: blur(1.5px) brightness(1);
+                opacity: 1;
+            }
+            100% {
+                filter: blur(1px) brightness(1.2);
+                opacity: 0.8;
+            }
         }
 
         .table-container {
