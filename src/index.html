@@ -191,60 +191,35 @@
             -webkit-text-fill-color: transparent;
             text-transform: uppercase;
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+            animation: clearTitle 1s forwards;
         }
 
-        @keyframes titleEnter {
+        @keyframes clearTitle {
             0% {
-                opacity: 0;
-                transform: translateY(50vh) scale(2);
-                filter: blur(20px) brightness(2);
-                letter-spacing: 20px;
-            }
-            20% {
-                opacity: 1;
-                transform: translateY(40vh) scale(2);
-                filter: blur(0) brightness(1.5);
-            }
-            40% {
-                transform: translateY(30vh) scale(1.5);
-                letter-spacing: 10px;
-                filter: blur(0) brightness(1.2);
-            }
-            60% {
-                transform: translateY(20vh) scale(1.2);
-                letter-spacing: 5px;
+                filter: blur(10px) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
             }
             100% {
-                transform: translateY(0) scale(1);
-                letter-spacing: 3px;
-                filter: blur(0) brightness(1);
+                filter: blur(0) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
             }
         }
 
         h1 .char {
             display: inline-block;
             opacity: 0;
-            animation: charFloat 3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            animation: charFloat 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            filter: blur(0);
         }
 
         @keyframes charFloat {
             0% {
                 opacity: 0;
-                transform: translateY(100px) rotate(20deg);
-                text-shadow: 0 0 50px var(--primary-color);
-            }
-            30% {
-                opacity: 0.5;
-                transform: translateY(-20px) rotate(-10deg);
-            }
-            60% {
-                opacity: 0.8;
-                transform: translateY(10px) rotate(5deg);
+                transform: translateY(20px);
+                filter: blur(0);
             }
             100% {
                 opacity: 1;
-                transform: translateY(0) rotate(0deg);
-                text-shadow: 0 0 20px var(--primary-color);
+                transform: translateY(0);
+                filter: blur(0);
             }
         }
 
