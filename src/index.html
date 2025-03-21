@@ -72,6 +72,14 @@
 				font-size: 2em;
 			}
 		}
+		.table-row-update {
+			animation: highlight 1s ease-out;
+		}
+
+		@keyframes highlight {
+			0% { background-color: #61dafb33; }
+			100% { background-color: transparent; }
+		}
 	</style>
 </head>
 <body>
@@ -79,10 +87,33 @@
 	<h1>阿奎GPT欢迎您</h1>
 	<div class="table-container">
 		<table>
-			{{TABLE_HEADERS}}
-			{{DATA}}
+			<thead>
+				{{TABLE_HEADERS}}
+			</thead>
+			<tbody id="tableBody">
+				{{DATA}}
+			</tbody>
 		</table>
 	</div>
 </div>
+
+<script>
+	function updateData() {
+		const tableBody = document.getElementById('tableBody');
+		if (!tableBody) return;
+
+		const rows = tableBody.getElementsByTagName('tr');
+		for (let row of rows) {
+			row.classList.add('table-row-update');
+			setTimeout(() => {
+				row.classList.remove('table-row-update');
+			}, 1000);
+		}
+	}
+
+	document.addEventListener('DOMContentLoaded', () => {
+		setInterval(updateData, 5000);
+	});
+</script>
 </body>
 </html>
