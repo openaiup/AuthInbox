@@ -109,15 +109,32 @@
 <script>
 // 复制功能
 function copyToClipboard(text, btn) {
-    navigator.clipboard.writeText(text).then(() => {
+    // 创建临时输入框
+    const input = document.createElement('input');
+    input.style.position = 'fixed';
+    input.style.opacity = '0';
+    input.value = text;
+    document.body.appendChild(input);
+    
+    // 选择文本
+    input.select();
+    input.setSelectionRange(0, 99999);
+    
+    try {
+        // 执行复制
+        document.execCommand('copy');
+        // 更新按钮文字
         const originalText = btn.textContent;
         btn.textContent = '已复制';
         setTimeout(() => {
             btn.textContent = originalText;
         }, 1000);
-    }).catch(err => {
+    } catch (err) {
         console.error('复制失败:', err);
-    });
+    }
+    
+    // 移除临时输入框
+    document.body.removeChild(input);
 }
 
 // 添加复制按钮到验证码单元格
