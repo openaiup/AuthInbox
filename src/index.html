@@ -175,8 +175,11 @@
             font-size: 3.2em;
             font-weight: 800;
             letter-spacing: 3px;
-            position: relative;
+            position: fixed;
             padding: 15px 0;
+            width: 100%;
+            left: 0;
+            top: 50%;
             background: linear-gradient(
                 120deg,
                 var(--primary-color) 0%,
@@ -190,48 +193,64 @@
             text-transform: uppercase;
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
             opacity: 0;
-            transform: scale(0.8) translateY(-50px);
-            animation: titleEnter 1.5s ease-out forwards,
-                       gradientText 6s linear infinite 1.5s;
+            transform: translate(0, -50%) scale(2);
+            animation: titleEnter 3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            z-index: 1000;
         }
 
         @keyframes titleEnter {
             0% {
                 opacity: 0;
-                transform: scale(0.8) translateY(-50px);
-                filter: blur(20px);
+                transform: translate(0, -50%) scale(2);
+                filter: blur(20px) brightness(2);
+                letter-spacing: 20px;
+            }
+            20% {
+                opacity: 1;
+                transform: translate(0, -50%) scale(2);
+                filter: blur(0) brightness(1.5);
+            }
+            40% {
+                transform: translate(0, -50%) scale(1.5);
+                letter-spacing: 10px;
+                filter: blur(0) brightness(1.2);
             }
             60% {
-                opacity: 0.8;
-                transform: scale(1.1) translateY(0);
-                filter: blur(0);
+                transform: translate(0, -50%) scale(1.2);
+                letter-spacing: 5px;
             }
             80% {
-                opacity: 1;
-                transform: scale(0.95) translateY(0);
+                position: fixed;
+                transform: translate(0, 0) scale(1);
+                letter-spacing: 3px;
             }
             100% {
-                opacity: 1;
-                transform: scale(1) translateY(0);
+                position: relative;
+                transform: translate(0, 0) scale(1);
+                letter-spacing: 3px;
+                filter: blur(0) brightness(1);
             }
         }
 
         h1 .char {
             display: inline-block;
             opacity: 0;
-            transform: translateY(-100px) rotate(20deg);
-            animation: charEnter 0.5s ease-out forwards;
+            animation: charFloat 3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
         }
 
-        @keyframes charEnter {
+        @keyframes charFloat {
             0% {
                 opacity: 0;
-                transform: translateY(-100px) rotate(20deg);
+                transform: translateY(100px) rotate(20deg);
                 text-shadow: 0 0 50px var(--primary-color);
+            }
+            30% {
+                opacity: 0.5;
+                transform: translateY(-20px) rotate(-10deg);
             }
             60% {
                 opacity: 0.8;
-                transform: translateY(20px) rotate(-5deg);
+                transform: translateY(10px) rotate(5deg);
             }
             100% {
                 opacity: 1;
@@ -240,55 +259,41 @@
             }
         }
 
-        h1::before {
-            content: attr(data-text);
-            position: absolute;
-            left: 0;
+        .light-beam {
+            position: fixed;
             top: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(
-                90deg,
-                transparent 0%,
-                rgba(255, 255, 255, 0.2) 50%,
-                transparent 100%
-            );
-            background-size: 200% 100%;
-            animation: scanline 2s linear infinite;
-            z-index: -1;
-            opacity: 0;
-            animation: scanline 2s linear infinite 1.5s;
-        }
-
-        h1::after {
-            content: '';
-            position: absolute;
             left: 50%;
-            bottom: 0;
-            width: 0;
-            height: 2px;
-            transform: translateX(-50%);
-            background: linear-gradient(
-                90deg,
-                transparent 0%,
-                var(--primary-color) 20%,
-                var(--secondary-color) 50%,
-                var(--primary-color) 80%,
-                transparent 100%
+            width: 2px;
+            height: 100vh;
+            background: linear-gradient(to bottom,
+                transparent,
+                var(--primary-color),
+                var(--secondary-color),
+                transparent
             );
+            transform: translateX(-50%);
             opacity: 0;
-            filter: blur(1px);
-            animation: lineExpand 0.8s ease-out forwards 1s;
+            filter: blur(2px);
+            animation: beamEffect 3s ease-out forwards;
+            z-index: 999;
         }
 
-        @keyframes lineExpand {
+        @keyframes beamEffect {
             0% {
-                width: 0;
                 opacity: 0;
+                transform: translateX(-50%) scaleY(0);
+            }
+            20% {
+                opacity: 1;
+                transform: translateX(-50%) scaleY(1);
+            }
+            40% {
+                opacity: 0.8;
+                transform: translateX(-50%) scaleY(1);
             }
             100% {
-                width: 60%;
-                opacity: 0.8;
+                opacity: 0;
+                transform: translateX(-50%) scaleY(0);
             }
         }
 
@@ -305,7 +310,7 @@
             opacity: 0;
             transform: translateY(30px);
             animation: slideUp 0.8s ease-out forwards;
-            animation-delay: 0.5s;
+            animation-delay: 2.5s;
         }
 
         @keyframes slideUp {
@@ -446,14 +451,27 @@ document.addEventListener('DOMContentLoaded', function() {
     // 添加复制按钮
     addCopyButtons();
     
+    // 添加光束效果
+    const lightBeam = document.createElement('div');
+    lightBeam.className = 'light-beam';
+    document.body.appendChild(lightBeam);
+    
     // 为标题添加字符动画
     const h1 = document.querySelector('h1');
     if (h1) {
         const text = h1.textContent;
         h1.setAttribute('data-text', text);
         h1.innerHTML = text.split('').map((char, i) => 
-            `<span class="char" style="animation-delay: ${i * 0.1}s">${char}</span>`
+            `<span class="char" style="animation-delay: ${1.5 + i * 0.1}s">${char}</span>`
         ).join('');
+
+        // 3秒后移除fixed定位
+        setTimeout(() => {
+            h1.style.position = 'relative';
+            h1.style.width = 'auto';
+            h1.style.top = 'auto';
+            h1.style.left = 'auto';
+        }, 3000);
     }
 
     initCursorEffect();
