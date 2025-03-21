@@ -30,6 +30,8 @@
             opacity: 0;
             animation: fadeIn 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
             overflow-y: overlay;
+            -ms-overflow-style: none;  /* IE 和 Edge */
+            scrollbar-width: none;     /* Firefox */
         }
 
         @keyframes fadeIn {
@@ -423,61 +425,12 @@
 
         /* 自定义滚动条样式 */
         ::-webkit-scrollbar {
-            width: 8px;  /* 减小宽度 */
-            height: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.03);  /* 降低轨道透明度 */
-            border-radius: 10px;
-            margin: 5px 0;  /* 添加上下边距 */
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: linear-gradient(
-                180deg,
-                rgba(0, 212, 255, 0.3) 0%,  /* 使用半透明的主色调 */
-                rgba(112, 0, 255, 0.3) 100%
-            );
-            border-radius: 10px;
-            border: 2px solid rgba(255, 255, 255, 0.1);  /* 增加边框透明度 */
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            backdrop-filter: blur(5px);  /* 添加模糊效果 */
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(
-                180deg,
-                rgba(0, 212, 255, 0.5) 0%,
-                rgba(112, 0, 255, 0.5) 100%
-            );
-            border: 2px solid rgba(255, 255, 255, 0.15);
-            box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
-        }
-
-        ::-webkit-scrollbar-thumb:active {
-            background: linear-gradient(
-                180deg,
-                rgba(0, 212, 255, 0.6) 0%,
-                rgba(112, 0, 255, 0.6) 100%
-            );
-        }
-
-        ::-webkit-scrollbar-corner {
-            background: transparent;
+            display: none;  /* Chrome, Safari 和 Opera */
         }
 
         /* 优化滚动行为 */
         html {
             scroll-behavior: smooth;
-            scrollbar-color: rgba(0, 212, 255, 0.3) rgba(255, 255, 255, 0.03);
-            scrollbar-width: thin;
-        }
-
-        /* 针对Firefox的滚动条样式 */
-        * {
-            scrollbar-width: thin;
-            scrollbar-color: rgba(0, 212, 255, 0.3) rgba(255, 255, 255, 0.03);
         }
 
         /* 优化移动端滚动体验 */
@@ -498,20 +451,6 @@
                     rgba(0, 212, 255, 0.4) 0%,
                     rgba(112, 0, 255, 0.4) 100%
                 );
-            }
-        }
-
-        /* 添加滚动条出现时的平滑过渡 */
-        @media (hover: hover) {
-            ::-webkit-scrollbar-thumb {
-                opacity: 0.6;
-                transform: scale(0.9);
-            }
-
-            ::-webkit-scrollbar-track:hover + ::-webkit-scrollbar-thumb,
-            ::-webkit-scrollbar-thumb:hover {
-                opacity: 1;
-                transform: scale(1);
             }
         }
     </style>
