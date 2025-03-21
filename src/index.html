@@ -34,18 +34,88 @@
             padding: 20px;
         }
 
-        h1 {
-            text-align: center;
-            color: var(--primary-color);
-            margin-bottom: 30px;
-            font-size: 2.5em;
-            text-shadow: 0 0 20px rgba(58, 134, 255, 0.3);
-            transition: all 0.3s ease;
+        @keyframes glow {
+            0% {
+                text-shadow: 0 0 10px rgba(58, 134, 255, 0.3),
+                            0 0 20px rgba(58, 134, 255, 0.3),
+                            0 0 30px rgba(58, 134, 255, 0.3);
+            }
+            50% {
+                text-shadow: 0 0 20px rgba(58, 134, 255, 0.5),
+                            0 0 30px rgba(58, 134, 255, 0.5),
+                            0 0 40px rgba(58, 134, 255, 0.5);
+            }
+            100% {
+                text-shadow: 0 0 10px rgba(58, 134, 255, 0.3),
+                            0 0 20px rgba(58, 134, 255, 0.3),
+                            0 0 30px rgba(58, 134, 255, 0.3);
+            }
         }
 
-        h1:hover {
-            text-shadow: 0 0 30px rgba(58, 134, 255, 0.5);
-            transform: scale(1.02);
+        @keyframes scanline {
+            0% {
+                background-position: 0% 0%;
+            }
+            100% {
+                background-position: 200% 0%;
+            }
+        }
+
+        h1 {
+            text-align: center;
+            color: #fff;
+            margin-bottom: 30px;
+            font-size: 2.8em;
+            font-weight: 700;
+            letter-spacing: 2px;
+            position: relative;
+            padding: 10px 0;
+            animation: glow 3s ease-in-out infinite;
+            background: linear-gradient(
+                90deg,
+                transparent 0%,
+                var(--primary-color) 50%,
+                transparent 100%
+            );
+            background-size: 200% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+        }
+
+        h1::before {
+            content: attr(data-text);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent 0%,
+                rgba(58, 134, 255, 0.1) 50%,
+                transparent 100%
+            );
+            background-size: 200% 100%;
+            animation: scanline 3s linear infinite;
+            z-index: -1;
+        }
+
+        h1::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 100%;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(
+                90deg,
+                transparent 0%,
+                var(--primary-color) 50%,
+                transparent 100%
+            );
+            opacity: 0.5;
         }
 
         .table-container {
@@ -151,6 +221,7 @@
 
             h1 {
                 font-size: 2em;
+                letter-spacing: 1px;
             }
 
             .copy-btn {
@@ -184,7 +255,15 @@ document.addEventListener('DOMContentLoaded', function() {
             previousRows.set(rowKey, true);
         }
     });
+    
+    // 添加复制按钮
     addCopyButtons();
+    
+    // 为标题添加data-text属性
+    const h1 = document.querySelector('h1');
+    if (h1) {
+        h1.setAttribute('data-text', h1.textContent);
+    }
 });
 
 // 复制功能
@@ -247,7 +326,7 @@ function addCopyButtons() {
     });
 }
 
-// 每10秒自动获取新数据
+// 每3秒自动获取新数据
 setInterval(function() {
     // 获取当前页面的URL
     const currentUrl = window.location.href;
@@ -273,5 +352,4 @@ setInterval(function() {
 }, 3000);
 </script>
 </body>
-</html> 
 </html> 
