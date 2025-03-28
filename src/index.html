@@ -236,8 +236,8 @@
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
-            opacity: 0;
-            transform: scale(0.98);
+            opacity: 1;
+            transform: scale(1);
             transition: opacity 0.5s ease;
             text-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
             overflow: hidden;
@@ -309,25 +309,23 @@
         .table-container {
             overflow: hidden;
             margin: 40px auto;
-            background: rgba(10, 25, 41, 0.5);
+            background: rgba(10, 25, 41, 0.8);
             border-radius: 16px;
             box-shadow: 
                 0 8px 32px rgba(0, 0, 0, 0.3),
                 0 0 0 1px rgba(255, 255, 255, 0.05) inset,
                 0 0 30px rgba(0, 212, 255, 0.15) inset;
             transition: all 0.3s ease;
-            opacity: 0;
-            transform: translateY(40px);
-            animation: tableReveal 1.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-            animation-delay: 2.5s;
+            opacity: 1;
+            transform: translateY(0);
             position: relative;
             max-width: 90%;
-            width: 90%; /* 更改为固定宽度比例 */
+            width: 90%;
             padding: 20px;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
-            z-index: 2; /* 确保表格在其他特效上方 */
-            background-color: rgba(10, 25, 41, 0.8); /* 增加不透明度，提高可见性 */
+            z-index: 2;
+            animation: none;
         }
 
         @keyframes tableReveal {
@@ -384,62 +382,15 @@
         /* 为表格行添加更高级的扫描效果 */
         #data-table tr {
             position: relative;
-            opacity: 0;
-            transform: translateX(-20px);
-            animation: rowReveal 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+            opacity: 1;
+            transform: translateX(0);
+            animation: none;
         }
 
-        @keyframes rowReveal {
-            0% {
-                opacity: 0;
-                transform: translateX(-30px) scale(0.97);
-                filter: blur(5px) brightness(0.7);
-            }
-            30% {
-                opacity: 0.3;
-                filter: blur(3px) brightness(0.8);
-            }
-            100% {
-                opacity: 1;
-                transform: translateX(0) scale(1);
-                filter: blur(0) brightness(1);
-            }
-        }
-
+        /* 移除可能影响显示的行扫描效果 */
         #data-table tr::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.2), transparent);
-            transform: translateX(-100%);
-            animation: rowScan 2s ease-in-out;
-            animation-delay: calc(3s + (var(--row-index, 0) * 0.1s));
-            pointer-events: none;
+            display: none;
         }
-
-        @keyframes rowScan {
-            0% {
-                transform: translateX(-100%);
-            }
-            100% {
-                transform: translateX(100%);
-            }
-        }
-
-        /* 为每行设置行索引变量 */
-        #data-table tr:nth-child(1) { --row-index: 1; animation-delay: 3.0s; }
-        #data-table tr:nth-child(2) { --row-index: 2; animation-delay: 3.1s; }
-        #data-table tr:nth-child(3) { --row-index: 3; animation-delay: 3.2s; }
-        #data-table tr:nth-child(4) { --row-index: 4; animation-delay: 3.3s; }
-        #data-table tr:nth-child(5) { --row-index: 5; animation-delay: 3.4s; }
-        #data-table tr:nth-child(6) { --row-index: 6; animation-delay: 3.5s; }
-        #data-table tr:nth-child(7) { --row-index: 7; animation-delay: 3.6s; }
-        #data-table tr:nth-child(8) { --row-index: 8; animation-delay: 3.7s; }
-        #data-table tr:nth-child(9) { --row-index: 9; animation-delay: 3.8s; }
-        #data-table tr:nth-child(10) { --row-index: 10; animation-delay: 3.9s; }
 
         table {
             width: 100%;
@@ -1056,8 +1007,12 @@
 // 存储上一次的所有内容
 let previousRows = new Map();
 
-// 初始化时记录当前所有内容
+// 页面加载时调用的函数，简化以确保基本功能正常工作
 document.addEventListener('DOMContentLoaded', function() {
+    // 直接添加复制按钮
+    addCopyButtons();
+    
+    // 记录当前所有内容
     const rows = document.querySelectorAll('#data-table tr');
     rows.forEach(row => {
         const cells = row.querySelectorAll('td');
@@ -1067,41 +1022,29 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // 添加复制按钮
-    addCopyButtons();
-    
-    // 为标题添加粒子聚合动画
+    // 确保标题可见
     const h1 = document.querySelector('h1');
     if (h1) {
-        const text = h1.textContent;
-        h1.setAttribute('data-text', text);
-        
-        // 隐藏原始标题等待粒子动画
-        h1.style.opacity = '0';
-        
-        // 创建粒子容器
-        const particleContainer = document.createElement('div');
-        particleContainer.className = 'particle-container';
-        particleContainer.style.position = 'absolute';
-        particleContainer.style.top = '0';
-        particleContainer.style.left = '0';
-        particleContainer.style.width = '100%';
-        particleContainer.style.height = '100%';
-        particleContainer.style.pointerEvents = 'none';
-        particleContainer.style.zIndex = '1000';
-        document.querySelector('.container').appendChild(particleContainer);
-        
-        // 创建粒子动画
-        setTimeout(() => {
-            createTitleParticlesAnimation(h1, particleContainer);
-        }, 300); // 略微延迟确保页面已加载
+        h1.style.opacity = '1';
+        h1.classList.add('active');
     }
-
-    initCursorEffect();
-    initParticleEffect();
-    initLightningEffect();
-    initParallaxEffect();
-    createStarryBackground();
+    
+    // 确保表格容器可见
+    const tableContainer = document.querySelector('.table-container');
+    if (tableContainer) {
+        tableContainer.style.opacity = '1';
+        tableContainer.style.transform = 'translateY(0)';
+    }
+    
+    // 检查表格是否有内容，如果没有则尝试获取数据
+    const table = document.getElementById('data-table');
+    if (table && (table.rows.length <= 1 || table.innerHTML.includes('{{DATA}}'))) {
+        fetchTableData();
+    }
+    
+    // 进行检查和修复
+    setTimeout(checkAndFixTablePlaceholders, 1000);
+    setTimeout(ensureTableVisibility, 2000);
 });
 
 // 复制功能
@@ -1198,19 +1141,22 @@ function createSuccessParticle(x, y) {
     }, duration * 1000);
 }
 
-// 添加复制按钮到验证码单元格
+// 修改添加复制按钮的函数，确保数据正确处理
 function addCopyButtons() {
     const rows = document.querySelectorAll('#data-table tr');
+    let hasButtons = false;
+    
     rows.forEach(row => {
         const cells = row.querySelectorAll('td');
         if (cells.length > 0) {
+            hasButtons = true;
             const rowKey = Array.from(cells).map(cell => cell.textContent.trim()).join('|');
             const isNewRow = !previousRows.has(rowKey);
             
             cells.forEach((cell, index) => {
                 const content = cell.textContent.trim();
-                // 检查是否是验证码列（如果是数字则视为验证码）
-                if (content.match(/^\d+$/) && index !== cells.length - 1) {  // 确保不是时间列
+                // 直接检查是否是验证码列（第二列）
+                if (index === 1) {  // 假设验证码总是在第二列
                     cell.innerHTML = `
                         <div class="code-cell">
                             <span class="${isNewRow ? 'new-code' : ''}" title="${content}">${content}</span>
@@ -1227,32 +1173,37 @@ function addCopyButtons() {
             });
         }
     });
+    
+    // 如果没有找到按钮，可能是表格还没有正确加载
+    if (!hasButtons && rows.length > 1) {
+        console.log("表格已加载但没有内容，尝试重新获取数据...");
+        setTimeout(() => {
+            fetchTableData();
+        }, 1000);
+    }
 }
 
-// 每3秒自动获取新数据
-setInterval(function() {
-    // 获取当前页面的URL
-    const currentUrl = window.location.href;
-    
-    // 使用fetch获取新数据
-    fetch(currentUrl)
+// 添加新函数专门处理数据获取
+function fetchTableData() {
+    console.log("正在获取新数据...");
+    fetch(window.location.href)
         .then(response => response.text())
         .then(html => {
-            // 创建一个临时的div来解析HTML
             const temp = document.createElement('div');
             temp.innerHTML = html;
             
-            // 获取新的表格内容
-            const newTable = temp.querySelector('#data-table').innerHTML;
-            
-            // 更新当前表格内容
-            document.getElementById('data-table').innerHTML = newTable;
-            
-            // 重新添加复制按钮
-            addCopyButtons();
+            const newTable = temp.querySelector('#data-table');
+            if (newTable && newTable.innerHTML) {
+                console.log("成功获取新数据，正在更新表格...");
+                const currentTable = document.getElementById('data-table');
+                currentTable.innerHTML = newTable.innerHTML;
+                addCopyButtons();
+            } else {
+                console.error("获取到的数据中没有找到表格内容");
+            }
         })
-        .catch(error => console.error('刷新失败:', error));
-}, 3000);
+        .catch(error => console.error('获取数据失败:', error));
+}
 
 // 鼠标跟随效果
 function initCursorEffect() {
@@ -1453,11 +1404,12 @@ function initParticleEffect() {
 
 // 优化标题粒子动画函数
 function createTitleParticlesAnimation(titleElement, container) {
-    // 减少粒子数量以提高性能
-    const isMobile = window.innerWidth <= 768;
-    const particleCount = isMobile ? 400 : 300; // 减少粒子数量
+    // 直接显示标题，不执行粒子动画
+    titleElement.style.opacity = '1';
+    titleElement.classList.add('active');
     
-    // ... 其余代码保持不变 ...
+    // 不创建粒子
+    console.log("标题粒子动画已禁用以确保标题显示");
 }
 
 // 添加创建闪电特效的函数
@@ -1631,18 +1583,12 @@ function createLoadingOverlay() {
     }, 80);
 }
 
-// 页面加载时调用
+// 页面加载后检查表格
 window.addEventListener('load', function() {
-    createLoadingOverlay();
+    // createLoadingOverlay(); // 注释掉加载覆盖层
     
-    // 确保表格容器在页面加载后最终可见
-    setTimeout(function() {
-        const tableContainer = document.querySelector('.table-container');
-        if (tableContainer && getComputedStyle(tableContainer).opacity < 0.1) {
-            tableContainer.style.opacity = '1';
-            tableContainer.style.transform = 'translateY(0)';
-        }
-    }, 5000); // 5秒后检查表格是否显示
+    // 直接确保表格可见
+    ensureTableVisibility();
 });
 
 // 创建星空背景
@@ -1746,41 +1692,57 @@ function ensureTableVisibility() {
     const table = document.getElementById('data-table');
     
     if (tableContainer && table) {
-        // 如果表格容器不可见，强制显示它
-        if (getComputedStyle(tableContainer).opacity < 0.1 || 
-            tableContainer.getBoundingClientRect().height < 10) {
-            
-            console.log("检测到表格不可见，正在恢复显示...");
-            tableContainer.style.opacity = '1';
-            tableContainer.style.transform = 'translateY(0)';
-            tableContainer.style.display = 'block';
-            
-            // 如果表格内容为空，重新获取数据
-            if (table.rows.length <= 1) {
-                // 使用fetch获取新数据
-                fetch(window.location.href)
-                    .then(response => response.text())
-                    .then(html => {
-                        const temp = document.createElement('div');
-                        temp.innerHTML = html;
-                        
-                        const newTable = temp.querySelector('#data-table');
-                        if (newTable && newTable.innerHTML) {
-                            table.innerHTML = newTable.innerHTML;
-                            addCopyButtons();
-                        }
-                    })
-                    .catch(error => console.error('恢复表格失败:', error));
-            }
+        // 强制表格容器显示
+        tableContainer.style.opacity = '1';
+        tableContainer.style.transform = 'translateY(0)';
+        tableContainer.style.display = 'block';
+        
+        // 检查表格内容
+        if (table.rows.length <= 1 || 
+            table.innerHTML.includes('{{TABLE_HEADERS}}') || 
+            table.innerHTML.includes('{{DATA}}')) {
+            console.log("检测到表格内容问题，重新获取数据...");
+            fetchTableData();
         }
     }
 }
 
-// 30秒检查一次表格可见性
-setInterval(ensureTableVisibility, 30000);
+// 更频繁地检查并确保表格可见
+setInterval(ensureTableVisibility, 10000); // 每10秒检查一次
 
-// 页面加载后10秒检查一次
-setTimeout(ensureTableVisibility, 10000);
+// 添加函数检查并修复表格模板变量
+function checkAndFixTablePlaceholders() {
+    const table = document.getElementById('data-table');
+    if (table && table.innerHTML.includes('{{TABLE_HEADERS}}')) {
+        console.log("检测到表格模板变量未被替换，尝试修复...");
+        
+        // 创建基本表头
+        const headerRow = document.createElement('tr');
+        headerRow.innerHTML = `
+            <th>邮箱</th>
+            <th>ChatGPT验证码</th>
+            <th>操作</th>
+        `;
+        
+        // 清空表格并添加表头
+        table.innerHTML = '';
+        table.appendChild(headerRow);
+        
+        // 尝试获取新数据
+        fetchTableData();
+    }
+}
+
+// 页面加载后检查表格
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(checkAndFixTablePlaceholders, 1000);
+});
+
+// 修改自动获取新数据的函数，使其更可靠
+setInterval(function() {
+    console.log("定期刷新数据...");
+    fetchTableData();
+}, 5000); // 每5秒刷新一次
 </script>
 </body>
 </html> 
