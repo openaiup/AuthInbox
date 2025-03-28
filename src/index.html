@@ -237,6 +237,12 @@
             transition: opacity 0.5s ease;
         }
 
+        @keyframes lineWidth {
+            0% { width: 30%; }
+            50% { width: 140%; }
+            100% { width: 30%; }
+        }
+
         h1::after {
             content: '';
             position: absolute;
@@ -255,22 +261,9 @@
             );
             opacity: 0.8;
             filter: blur(1px);
-            animation: borderGlow 10s linear infinite;
-        }
-
-        @keyframes borderGlow {
-            0% {
-                filter: blur(1px) brightness(1.2);
-                opacity: 0.8;
-            }
-            50% {
-                filter: blur(1.5px) brightness(1);
-                opacity: 1;
-            }
-            100% {
-                filter: blur(1px) brightness(1.2);
-                opacity: 0.8;
-            }
+            animation: 
+                borderGlow 10s linear infinite,
+                lineWidth 8s ease-in-out infinite;
         }
 
         .table-container {
@@ -1354,22 +1347,8 @@ function createTextEffect(container) {
 
 // 添加微妙的浮动动画到内容元素
 function addSubtleFloatToElements() {
-    // 为标题添加轻微悬浮效果
-    const h1 = document.querySelector('h1');
-    if (h1) {
-        h1.animate([
-            { transform: 'translateY(0)' },
-            { transform: 'translateY(-5px)' },
-            { transform: 'translateY(0)' }
-        ], {
-            duration: 6000,
-            iterations: Infinity,
-            easing: 'ease-in-out'
-        });
-    }
-    
-    // 为表格容器添加轻微呼吸效果
-        setTimeout(() => {
+    // 仅保留表格容器的呼吸效果
+    setTimeout(() => {
         const tableContainer = document.querySelector('.table-container');
         if (tableContainer) {
             tableContainer.animate([
