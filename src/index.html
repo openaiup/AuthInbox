@@ -27,8 +27,7 @@
             flex-direction: column;
             position: relative;
             overflow-x: hidden;
-            opacity: 0;
-            animation: fadeIn 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            opacity: 1;
             overflow-y: overlay;
             -ms-overflow-style: none;  /* IE 和 Edge */
             scrollbar-width: none;     /* Firefox */
@@ -251,7 +250,19 @@
             );
             opacity: 0.8;
             filter: blur(1px);
-            animation: borderGlow 10s linear infinite;
+            animation: borderGlow 10s linear infinite, borderWidth 8s ease-in-out infinite;
+        }
+
+        @keyframes borderWidth {
+            0% {
+                width: 30%;
+            }
+            50% {
+                width: 150%;
+            }
+            100% {
+                width: 30%;
+            }
         }
 
         @keyframes borderGlow {
@@ -279,23 +290,8 @@
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid var(--border-color);
             transition: all 0.3s ease;
-            opacity: 0;
-            transform: translateY(40px);
-            animation: slideUp 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-            animation-delay: 2.8s;
-        }
-
-        @keyframes slideUp {
-            from { 
-                opacity: 0;
-                transform: translateY(40px) scale(0.96);
-                filter: blur(8px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-                filter: blur(0);
-            }
+            opacity: 1;
+            transform: translateY(0);
         }
 
         table {
@@ -453,6 +449,100 @@
                 );
             }
         }
+
+        body::before {
+            display: none; /* 隐藏网格背景 */
+        }
+
+        /* 移除动态辉光元素 */
+        .glow-container {
+            display: none;
+        }
+
+        .glow-element {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.15) 0%, rgba(112, 0, 255, 0.08) 40%, rgba(10, 25, 41, 0) 70%);
+            filter: blur(20px);
+            opacity: 0.5;
+            animation: moveGlow 25s infinite alternate ease-in-out;
+            pointer-events: none;
+        }
+
+        .glow-element:nth-child(2) {
+            width: 400px;
+            height: 400px;
+            animation-duration: 30s;
+            animation-delay: -5s;
+        }
+
+        .glow-element:nth-child(3) {
+            width: 200px;
+            height: 200px;
+            animation-duration: 20s;
+            animation-delay: -12s;
+        }
+
+        @keyframes moveGlow {
+            0% {
+                transform: translate(10%, 10%);
+            }
+            50% {
+                transform: translate(70%, 60%);
+            }
+            100% {
+                transform: translate(20%, 80%);
+            }
+        }
+
+        .tech-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .tech-background canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .digital-rain {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .rain-column {
+            position: absolute;
+            top: -20px;
+            color: var(--primary-color);
+            font-family: monospace;
+            font-size: 12px;
+            text-align: center;
+            user-select: none;
+            filter: blur(0.5px);
+            opacity: 0.15;
+            text-shadow: 0 0 5px var(--primary-color);
+            animation: rainFall linear infinite;
+        }
+
+        @keyframes rainFall {
+            to {
+                transform: translateY(calc(100vh + 100px));
+            }
+        }
     </style>
 </head>
 <body>
@@ -486,54 +576,68 @@ document.addEventListener('DOMContentLoaded', function() {
     // 添加复制按钮
     addCopyButtons();
     
-    // 为标题添加粒子聚合动画
+    // 优化标题初始化，移除不必要的注释代码
     const h1 = document.querySelector('h1');
     if (h1) {
         const text = h1.textContent;
         h1.setAttribute('data-text', text);
-        
-        // 隐藏原始标题等待粒子动画
-        h1.style.opacity = '0';
-        
-        // 创建粒子容器
-        const particleContainer = document.createElement('div');
-        particleContainer.className = 'particle-container';
-        particleContainer.style.position = 'absolute';
-        particleContainer.style.top = '0';
-        particleContainer.style.left = '0';
-        particleContainer.style.width = '100%';
-        particleContainer.style.height = '100%';
-        particleContainer.style.pointerEvents = 'none';
-        particleContainer.style.zIndex = '1000';
-        document.querySelector('.container').appendChild(particleContainer);
-        
-        // 创建粒子动画
-        setTimeout(() => {
-            createTitleParticlesAnimation(h1, particleContainer);
-        }, 300); // 略微延迟确保页面已加载
+        h1.style.opacity = '1';
+        h1.classList.add('active');
     }
 
-    initCursorEffect();
-    initParticleEffect();
+    // 使用一个函数调用初始化所有必要功能，提高代码可读性
+    initPageFeatures();
+    
+    // 添加入场动画
+    initEntranceAnimation();
 });
 
-// 复制功能
+// 整合初始化功能 - 仅保留粒子连线背景
+function initPageFeatures() {
+    initCursorEffect();
+    initParticleEffect();
+    initTechBackground();
+    // 移除数字雨效果的初始化
+    // initDigitalRain();
+}
+
+// 优化复制函数，使用现代API
 function copyToClipboard(text, btn) {
-    // 创建临时输入框
+    // 使用现代Clipboard API代替execCommand
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text)
+            .then(() => {
+                // 更新按钮文字
+                const originalText = btn.textContent;
+                btn.textContent = '已复制';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 1000);
+            })
+            .catch(err => {
+                console.error('复制失败:', err);
+                // 失败时使用旧方法作为后备
+                fallbackCopy(text, btn);
+            });
+    } else {
+        // 兼容性后备方案
+        fallbackCopy(text, btn);
+    }
+}
+
+// 后备复制方案
+function fallbackCopy(text, btn) {
     const input = document.createElement('input');
     input.style.position = 'fixed';
     input.style.opacity = '0';
     input.value = text;
     document.body.appendChild(input);
     
-    // 选择文本
     input.select();
     input.setSelectionRange(0, 99999);
     
     try {
-        // 执行复制
         document.execCommand('copy');
-        // 更新按钮文字
         const originalText = btn.textContent;
         btn.textContent = '已复制';
         setTimeout(() => {
@@ -543,7 +647,6 @@ function copyToClipboard(text, btn) {
         console.error('复制失败:', err);
     }
     
-    // 移除临时输入框
     document.body.removeChild(input);
 }
 
@@ -577,32 +680,7 @@ function addCopyButtons() {
     });
 }
 
-// 每3秒自动获取新数据
-setInterval(function() {
-    // 获取当前页面的URL
-    const currentUrl = window.location.href;
-    
-    // 使用fetch获取新数据
-    fetch(currentUrl)
-        .then(response => response.text())
-        .then(html => {
-            // 创建一个临时的div来解析HTML
-            const temp = document.createElement('div');
-            temp.innerHTML = html;
-            
-            // 获取新的表格内容
-            const newTable = temp.querySelector('#data-table').innerHTML;
-            
-            // 更新当前表格内容
-            document.getElementById('data-table').innerHTML = newTable;
-            
-            // 重新添加复制按钮
-            addCopyButtons();
-        })
-        .catch(error => console.error('刷新失败:', error));
-}, 3000);
-
-// 鼠标跟随效果
+// 鼠标跟随效果 - 恢复为仅光点版本
 function initCursorEffect() {
     const cursorDot = document.querySelector('.cursor-dot');
     let isMouseInPage = false;
@@ -625,11 +703,13 @@ function initCursorEffect() {
         if (!isMouseInPage) return;
         mouseX = e.clientX;
         mouseY = e.clientY;
+        
+        // 只更新光点的位置
         cursorDot.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;
     });
 }
 
-// 创建粒子效果
+// 恢复原有的粒子效果函数
 function createParticle(x, y, isMicroParticle = false) {
     const particle = document.createElement('div');
     particle.className = isMicroParticle ? 'micro-particle' : 'particle';
@@ -682,7 +762,7 @@ function createParticle(x, y, isMicroParticle = false) {
     }, isMicroParticle ? 1500 : 1300);
 }
 
-// 鼠标移动时创建粒子
+// 鼠标移动时创建粒子 - 恢复原始版本
 function initParticleEffect() {
     let lastParticleTime = 0;
     let lastMicroParticleTime = 0;
@@ -716,152 +796,619 @@ function initParticleEffect() {
     });
 }
 
-// 优化标题粒子动画函数
-function createTitleParticlesAnimation(titleElement, container) {
-    // 针对不同设备优化参数
-    const isMobile = window.innerWidth <= 768;
-    const particleCount = isMobile ? 800 : 400; // 在桌面端减少粒子数量
-    const duration = 2000; // 进一步缩短动画时间
-    const particles = [];
+// 增强科技感背景
+function initTechBackground() {
+    // 检查是否已经存在技术背景容器，如果有则移除
+    const existingBackground = document.querySelector('.tech-background');
+    if (existingBackground) {
+        existingBackground.remove();
+    }
     
-    const rect = titleElement.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
+    // 创建背景容器
+    const backgroundContainer = document.createElement('div');
+    backgroundContainer.className = 'tech-background';
+    document.body.insertBefore(backgroundContainer, document.body.firstChild);
     
-    // 增加网格大小，减少粒子密度
-    const gridSize = isMobile ? 8 : 12;
-    const cols = Math.floor(width / gridSize);
-    const rows = Math.floor(height / gridSize);
+    // 创建画布
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    backgroundContainer.appendChild(canvas);
     
-    // 创建离屏容器以减少DOM操作
-    const fragment = document.createDocumentFragment();
+    // 设置画布尺寸
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
     
-    // 优化粒子创建
-    for (let i = 0; i < particleCount; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'title-particle';
+    // 监听窗口大小变化
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+    
+    // 创建粒子
+    const particlesArray = [];
+    const numberOfParticles = window.innerWidth < 768 ? 50 : 120; // 增加粒子数量
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim();
+    const secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary-color').trim();
+    
+    // 粒子类
+    class Particle {
+        constructor() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.size = Math.random() * 2 + 0.5; // 略微增大粒子
+            this.speedX = (Math.random() - 0.5) * 0.6; // 增加速度
+            this.speedY = (Math.random() - 0.5) * 0.6;
+            this.color = Math.random() > 0.5 ? primaryColor : secondaryColor;
+            this.opacity = Math.random() * 0.4 + 0.1; // 减少最低不透明度
+            this.pulseSpeed = Math.random() * 0.01 + 0.005; // 添加脉冲效果
+            this.pulseDirection = 1;
+            this.pulseFactor = 0;
+        }
         
-        const col = i % cols;
-        const row = Math.floor((i / cols) % rows);
-        const targetX = rect.left + (col * gridSize) + (Math.random() * gridSize);
-        const targetY = rect.top + (row * gridSize) + (Math.random() * gridSize);
+        update() {
+            // 粒子移动
+            this.x += this.speedX;
+            this.y += this.speedY;
+            
+            // 边缘检测与包裹
+            if (this.x > canvas.width) this.x = 0;
+            else if (this.x < 0) this.x = canvas.width;
+            
+            if (this.y > canvas.height) this.y = 0;
+            else if (this.y < 0) this.y = canvas.height;
+            
+            // 添加轻微脉冲效果
+            this.pulseFactor += this.pulseSpeed * this.pulseDirection;
+            if (this.pulseFactor > 0.3 || this.pulseFactor < -0.2) {
+                this.pulseDirection *= -1;
+            }
+        }
         
-        // 优化起始位置分布
-        const angle = (i / particleCount) * Math.PI * 2 + Math.random() * 0.5;
-        const distance = Math.random() * 200 + 100; // 减小起始距离范围
+        draw() {
+            ctx.fillStyle = this.color;
+            ctx.globalAlpha = this.opacity + this.pulseFactor;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size + this.pulseFactor, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    
+    // 创建粒子
+    function createParticles() {
+        for (let i = 0; i < numberOfParticles; i++) {
+            particlesArray.push(new Particle());
+        }
+    }
+    
+    // 连接粒子
+    function connectParticles() {
+        // 设置较长的连接距离
+        const connectionDistance = window.innerWidth < 768 ? 120 : 180;
         
-        const startX = rect.left + width/2 + Math.cos(angle) * distance;
-        const startY = rect.top + height/2 + Math.sin(angle) * distance;
+        for (let a = 0; a < particlesArray.length; a++) {
+            for (let b = a; b < particlesArray.length; b++) {
+                const dx = particlesArray[a].x - particlesArray[b].x;
+                const dy = particlesArray[a].y - particlesArray[b].y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < connectionDistance) {
+                    const opacity = 1 - (distance / connectionDistance);
+                    ctx.globalAlpha = opacity * 0.2; // 增加线的透明度
+                    
+                    // 使用渐变线条颜色
+                    const gradient = ctx.createLinearGradient(
+                        particlesArray[a].x, 
+                        particlesArray[a].y, 
+                        particlesArray[b].x, 
+                        particlesArray[b].y
+                    );
+                    gradient.addColorStop(0, particlesArray[a].color);
+                    gradient.addColorStop(1, particlesArray[b].color);
+                    
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = Math.max(0.1, opacity * 0.8); // 使线条粗细基于距离变化
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(particlesArray[a].x, particlesArray[a].y);
+                    ctx.lineTo(particlesArray[b].x, particlesArray[b].y);
+                    ctx.stroke();
+                }
+            }
+        }
+    }
+    
+    // 处理鼠标交互
+    let mouseX = undefined;
+    let mouseY = undefined;
+    let mouseRadius = 150;
+    
+    window.addEventListener('mousemove', (e) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+    });
+    
+    window.addEventListener('mouseout', () => {
+        mouseX = undefined;
+        mouseY = undefined;
+    });
+    
+    // 添加鼠标交互效果
+    function handleMouseInteraction() {
+        if (mouseX === undefined || mouseY === undefined) return;
         
-        // 优化粒子样式，减少阴影效果
-        particle.style.cssText = `
-            position: fixed;
-            width: ${Math.random() * 1.5 + 1}px;
-            height: ${Math.random() * 1.5 + 1}px;
-            background: var(--primary-color);
-            box-shadow: 0 0 ${Math.random() * 2 + 1}px var(--primary-color);
-            left: ${startX}px;
-            top: ${startY}px;
+        // 绘制鼠标周围的微光效果
+        ctx.beginPath();
+        const gradient = ctx.createRadialGradient(
+            mouseX, mouseY, 0, 
+            mouseX, mouseY, mouseRadius
+        );
+        gradient.addColorStop(0, 'rgba(0, 212, 255, 0.03)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = gradient;
+        ctx.arc(mouseX, mouseY, mouseRadius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 连接鼠标位置和附近的粒子
+        for (let i = 0; i < particlesArray.length; i++) {
+            const dx = mouseX - particlesArray[i].x;
+            const dy = mouseY - particlesArray[i].y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < mouseRadius) {
+                const opacity = 1 - (distance / mouseRadius);
+                ctx.globalAlpha = opacity * 0.4;
+                ctx.strokeStyle = particlesArray[i].color;
+                ctx.lineWidth = opacity * 1.5;
+                
+                ctx.beginPath();
+                ctx.moveTo(mouseX, mouseY);
+                ctx.lineTo(particlesArray[i].x, particlesArray[i].y);
+                ctx.stroke();
+                
+                // 加速附近粒子
+                const forceDirection = {
+                    x: dx / distance,
+                    y: dy / distance
+                };
+                
+                particlesArray[i].speedX += forceDirection.x * opacity * 0.1;
+                particlesArray[i].speedY += forceDirection.y * opacity * 0.1;
+                
+                // 限制最大速度
+                const maxSpeed = 2;
+                const currentSpeed = Math.sqrt(
+                    particlesArray[i].speedX * particlesArray[i].speedX + 
+                    particlesArray[i].speedY * particlesArray[i].speedY
+                );
+                
+                if (currentSpeed > maxSpeed) {
+                    particlesArray[i].speedX = (particlesArray[i].speedX / currentSpeed) * maxSpeed;
+                    particlesArray[i].speedY = (particlesArray[i].speedY / currentSpeed) * maxSpeed;
+                }
+            }
+        }
+    }
+    
+    // 添加粒子扰动效果
+    let disturbanceTime = 0;
+    let lastDisturbance = 0;
+    
+    function addDisturbance() {
+        const now = Date.now();
+        if (now - lastDisturbance > 5000) { // 每5秒随机扰动
+            if (Math.random() > 0.7) {
+                disturbanceTime = now;
+                lastDisturbance = now;
+                
+                // 随机选择扰动中心
+                const centerX = Math.random() * canvas.width;
+                const centerY = Math.random() * canvas.height;
+                
+                // 对粒子施加力
+                for (let i = 0; i < particlesArray.length; i++) {
+                    const dx = centerX - particlesArray[i].x;
+                    const dy = centerY - particlesArray[i].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 300) {
+                        const force = (1 - distance / 300) * 2;
+                        particlesArray[i].speedX += (dx / distance) * force;
+                        particlesArray[i].speedY += (dy / distance) * force;
+                    }
+                }
+            }
+        }
+    }
+    
+    // 动画循环
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 更新和绘制粒子
+        for (let i = 0; i < particlesArray.length; i++) {
+            particlesArray[i].update();
+            particlesArray[i].draw();
+        }
+        
+        connectParticles();
+        handleMouseInteraction();
+        addDisturbance();
+        
+        requestAnimationFrame(animate);
+    }
+    
+    createParticles();
+    animate();
+}
+
+// 优化自动刷新数据的函数，添加错误处理和重试逻辑
+let retryCount = 0;
+const maxRetries = 3;
+
+function refreshData() {
+    const currentUrl = window.location.href;
+    
+    fetch(currentUrl)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error ${response.status}`);
+            }
+            return response.text();
+        })
+        .then(html => {
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            
+            const newTable = temp.querySelector('#data-table');
+            if (newTable) {
+                document.getElementById('data-table').innerHTML = newTable.innerHTML;
+                addCopyButtons();
+                retryCount = 0; // 重置重试计数
+            }
+        })
+        .catch(error => {
+            console.error('刷新失败:', error);
+            if (retryCount < maxRetries) {
+                retryCount++;
+                setTimeout(refreshData, 1000); // 1秒后重试
+            }
+        });
+}
+
+// 使用更可靠的间隔调用方式
+setInterval(refreshData, 3000);
+
+// 修复入场动画函数，保持简洁有效的实现
+function initEntranceAnimation() {
+    // 获取页面尺寸
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    
+    // 删除现有的入场动画容器（如果有）
+    const existingContainer = document.querySelector('.entrance-animation-container');
+    if (existingContainer) {
+        existingContainer.remove();
+    }
+    
+    // 获取主题颜色
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim();
+    const secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary-color').trim();
+    
+    // 创建动画容器
+    const container = document.createElement('div');
+    container.className = 'entrance-animation-container';
+    container.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 9999;
+        overflow: hidden;
+        pointer-events: none;
+    `;
+    
+    // 创建暗色背景覆盖层
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: var(--background-color);
+        opacity: 1;
+        transition: opacity 1s ease-out;
+    `;
+    container.appendChild(overlay);
+    
+    // 创建动画网格
+    const grid = document.createElement('div');
+    grid.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: 
+            linear-gradient(to right, ${primaryColor}10 1px, transparent 1px),
+            linear-gradient(to bottom, ${primaryColor}10 1px, transparent 1px);
+        background-size: 50px 50px;
+        opacity: 0;
+        transform: scale(1.5);
+        transition: all 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+    `;
+    container.appendChild(grid);
+    
+    // 创建科技感线条 - 修复了变量重复声明的问题
+    const lineCount = width < 768 ? 15 : 25;
+    for (let i = 0; i < lineCount; i++) {
+        const line = document.createElement('div');
+        const isVertical = Math.random() > 0.5;
+        const size = Math.random() * 60 + 20;
+        const thickness = Math.random() * 2 + 1;
+        const startPos = Math.random() * 100;
+        const animDuration = Math.random() * 0.5 + 0.7;
+        const animDelay = Math.random() * 0.5;
+        const color = Math.random() > 0.5 ? primaryColor : secondaryColor;
+        
+        line.style.cssText = `
+            position: absolute;
+            background-color: ${color};
             opacity: 0;
-            border-radius: 50%;
-            will-change: transform, opacity;
-            transform-origin: center;
-            pointer-events: none;
+            box-shadow: 0 0 8px ${color};
+            transition: all ${animDuration}s cubic-bezier(0.2, 0.8, 0.2, 1) ${animDelay}s;
         `;
         
-        fragment.appendChild(particle);
-        
-        particles.push({
-            element: particle,
-            startX,
-            startY,
-            targetX,
-            targetY,
-            delay: Math.random() * 300, // 减少延迟时间
-            size: Math.random()
-        });
-    }
-    
-    // 一次性添加所有粒子
-    document.body.appendChild(fragment);
-    
-    const startTime = performance.now();
-    let rafId;
-    
-    function animate() {
-        const now = performance.now();
-        const elapsed = now - startTime;
-        const progress = Math.min(1, elapsed / duration);
-        
-        // 使用transform3d触发GPU加速
-        particles.forEach((p, i) => {
-            if (elapsed < p.delay) return;
-            
-            const particleProgress = Math.min(1, (elapsed - p.delay) / (duration - p.delay));
-            const ease = easeOutQuart(particleProgress); // 使用性能更好的缓动函数
-            
-            const x = p.startX + (p.targetX - p.startX) * ease;
-            const y = p.startY + (p.targetY - p.startY) * ease;
-            
-            // 减少波动效果
-            const wobble = Math.sin(elapsed * 0.006 + i) * (1 - ease) * 1;
-            
-            p.element.style.transform = `translate3d(${x - p.startX}px, ${y - p.startY + wobble}px, 0)`;
-            p.element.style.opacity = particleProgress * (0.4 + p.size * 0.6);
-        });
-        
-        if (progress < 1) {
-            rafId = requestAnimationFrame(animate);
+        if (isVertical) {
+            line.style.width = `${thickness}px`;
+            line.style.height = `${size}px`;
+            line.style.top = `${Math.random() * 100}%`;
+            line.style.left = `${startPos}%`;
+            line.style.transform = 'translateY(-100%)';
         } else {
-            cleanupAnimation();
+            line.style.width = `${size}px`;
+            line.style.height = `${thickness}px`;
+            line.style.top = `${startPos}%`;
+            line.style.left = `${Math.random() * 100}%`;
+            line.style.transform = 'translateX(-100%)';
         }
+        
+        container.appendChild(line);
     }
     
-    // 优化清理动画
-    function cleanupAnimation() {
-        cancelAnimationFrame(rafId);
-        titleElement.style.opacity = '0';
-        titleElement.classList.add('active');
+    // 创建中央标志
+    const logo = document.createElement('div');
+    logo.style.cssText = `
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(0);
+        width: 100px;
+        height: 100px;
+        background: radial-gradient(
+            circle,
+            ${primaryColor}90 0%,
+            ${primaryColor}50 40%,
+            ${secondaryColor}30 70%,
+            transparent 100%
+        );
+        border-radius: 50%;
+        opacity: 0;
+        box-shadow: 0 0 60px ${primaryColor}90;
+        transition: all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+        z-index: 10;
+    `;
+    container.appendChild(logo);
+    
+    // 创建扫描线
+    const scanLine = document.createElement('div');
+    scanLine.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: linear-gradient(to right, transparent, ${primaryColor}, transparent);
+        opacity: 0;
+        box-shadow: 0 0 15px ${primaryColor};
+        transform: translateY(-100%);
+        z-index: 5;
+    `;
+    container.appendChild(scanLine);
+    
+    // 将容器添加到文档
+    document.body.appendChild(container);
+    
+    // 隐藏内容
+    const content = document.querySelector('.container');
+    if (content) {
+        content.style.opacity = '0';
+        content.style.transition = 'opacity 0.8s ease-out';
+    }
+    
+    // 执行动画序列 - 修复了过度嵌套和异步问题
+    setTimeout(() => {
+        // 显示网格
+        grid.style.opacity = '0.4';
+        grid.style.transform = 'scale(1)';
         
-        // 使用更大的批次size，减少setTimeout调用次数
-        const batchSize = 40;
-        const batchDelay = 8;
+        // 显示标志
+        logo.style.opacity = '1';
+        logo.style.transform = 'translate(-50%, -50%) scale(1)';
         
-        for (let i = 0; i < particles.length; i += batchSize) {
-            const batch = particles.slice(i, i + batchSize);
+        // 扫描线动画 - 简化实现
+        scanLine.style.opacity = '0.8';
+        scanLine.style.transition = 'transform 2.5s cubic-bezier(0.215, 0.61, 0.355, 1), opacity 0.5s ease';
+        setTimeout(() => {
+            scanLine.style.transform = `translateY(${height}px)`;
+        }, 10);
+        
+        // 显示线条 - 简化选择器
+        const lines = Array.from(container.children).filter(el => 
+            el !== overlay && el !== grid && el !== logo && el !== scanLine);
+        
+        lines.forEach(line => {
+            line.style.opacity = '0.8';
+            if (parseFloat(line.style.width) < parseFloat(line.style.height)) {
+                line.style.transform = 'translateY(0)';
+            } else {
+                line.style.transform = 'translateX(0)';
+            }
+        });
+        
+        // 标志脉冲和爆发效果
+        setTimeout(() => {
+            logo.style.boxShadow = `0 0 100px ${primaryColor}`;
             
             setTimeout(() => {
-                batch.forEach(p => {
-                    const randomAngle = Math.random() * Math.PI * 2;
-                    const randomDistance = Math.random() * 30 + 20; // 减小消失距离
-                    const dx = Math.cos(randomAngle) * randomDistance;
-                    const dy = Math.sin(randomAngle) * randomDistance;
-                    
-                    p.element.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-                    p.element.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(0)`;
-                    p.element.style.opacity = '0';
+                // 爆发效果
+                createExplosionEffect(container, width / 2, height / 2, primaryColor, secondaryColor);
+                
+                // 标志缩小并淡出
+                logo.style.transform = 'translate(-50%, -50%) scale(2)';
+                logo.style.opacity = '0';
+                
+                // 线条淡出
+                lines.forEach(line => {
+                    line.style.transition = 'all 0.6s ease-out';
+                    line.style.opacity = '0';
                 });
                 
-                // 批量移除元素
+                // 网格淡出
+                grid.style.transition = 'all 0.8s ease-out';
+                grid.style.opacity = '0';
+                
+                // 背景淡出
+                overlay.style.opacity = '0';
+                
+                // 显示内容
+                if (content) {
+                    setTimeout(() => {
+                        content.style.opacity = '1';
+                    }, 200);
+                }
+                
+                // 移除动画容器
                 setTimeout(() => {
-                    batch.forEach(p => p.element.remove());
-                }, 300);
-            }, i / batchSize * batchDelay);
-        }
+                    container.remove();
+                }, 1500);
+            }, 800);
+        }, 1200);
+    }, 100);
+}
+
+// 修复爆发效果函数，简化实现
+function createExplosionEffect(container, centerX, centerY, primaryColor, secondaryColor) {
+    // 创建光环效果
+    const ring = document.createElement('div');
+    ring.style.cssText = `
+        position: absolute;
+        top: ${centerY}px;
+        left: ${centerX}px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        border: 2px solid ${primaryColor};
+        transform: translate(-50%, -50%);
+        opacity: 0.8;
+        z-index: 20;
+        box-shadow: 0 0 20px ${primaryColor}90;
+        transition: all 1s cubic-bezier(0.19, 1, 0.22, 1);
+    `;
+    container.appendChild(ring);
+    
+    // 创建波纹效果
+    const waves = [];
+    for (let i = 0; i < 3; i++) {
+        const wave = document.createElement('div');
+        wave.style.cssText = `
+            position: absolute;
+            top: ${centerY}px;
+            left: ${centerX}px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 2px solid ${i % 2 === 0 ? primaryColor : secondaryColor};
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 0.6;
+            z-index: 15;
+            transition: all ${1 + i * 0.2}s cubic-bezier(0.19, 1, 0.22, 1) ${i * 0.1}s;
+        `;
+        container.appendChild(wave);
+        waves.push(wave);
+    }
+    
+    // 创建数字线条效果 - 根据设备性能调整数量
+    const digitalLines = [];
+    const totalLines = window.innerWidth < 768 ? 20 : 40;
+    
+    for (let i = 0; i < totalLines; i++) {
+        const angle = (i / totalLines) * Math.PI * 2;
+        const length = 100 + Math.random() * 150;
+        const speed = 0.8 + Math.random() * 0.6;
+        const thickness = Math.random() * 2 + 1;
+        const color = Math.random() > 0.5 ? primaryColor : secondaryColor;
         
-        // 更快显示标题
+        const line = document.createElement('div');
+        line.style.cssText = `
+            position: absolute;
+            top: ${centerY}px;
+            left: ${centerX}px;
+            width: ${length}px;
+            height: ${thickness}px;
+            background-color: ${color};
+            opacity: 0;
+            transform: translate(-50%, -50%) rotate(${angle}rad) translateX(0);
+            transform-origin: center left;
+            z-index: 10;
+            box-shadow: 0 0 5px ${color};
+            transition: opacity ${speed}s ease-out, transform ${speed}s ease-out;
+        `;
+        container.appendChild(line);
+        digitalLines.push({line, speed});
+    }
+    
+    // 执行动画 - 简化和修复过渡问题
+    setTimeout(() => {
+        // 扩大光环
+        ring.style.width = '400px';
+        ring.style.height = '400px';
+        ring.style.borderWidth = '1px';
+        ring.style.opacity = '0';
+        
+        // 扩大波纹
+        waves.forEach((wave, index) => {
+            wave.style.width = `${300 + index * 100}px`;
+            wave.style.height = `${300 + index * 100}px`;
+            wave.style.borderWidth = '1px';
+            wave.style.opacity = '0';
+            wave.style.transform = 'translate(-50%, -50%) scale(1)';
+        });
+        
+        // 展开数字线条
+        digitalLines.forEach(({line, speed}) => {
+            // 先显示再移动，避免过渡问题
+            line.style.opacity = '0.7';
+            
+            // 确保DOM已经更新后再应用变换
+            setTimeout(() => {
+                line.style.transform = line.style.transform.replace('translateX(0)', 'translateX(100%)');
+                
+                // 延迟淡出
+                setTimeout(() => {
+                    line.style.opacity = '0';
+                }, speed * 500);
+            }, 10);
+        });
+        
+        // 清理DOM
         setTimeout(() => {
-            titleElement.style.opacity = '1';
-            titleElement.style.transform = 'scale(1)';
-        }, 150);
-    }
-    
-    // 使用性能更好的缓动函数
-    function easeOutQuart(t) {
-        return 1 - (--t) * t * t * t;
-    }
-    
-    animate();
+            ring.remove();
+            waves.forEach(wave => wave.remove());
+            digitalLines.forEach(({line}) => line.remove());
+        }, 1500);
+    }, 100);
 }
 </script>
 </body>
