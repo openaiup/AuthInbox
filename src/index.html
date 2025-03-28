@@ -183,6 +183,54 @@
             }
         }
 
+        @keyframes scanEffect {
+            0% {
+                background-position: -100% 0;
+            }
+            100% {
+                background-position: 200% 0;
+            }
+        }
+
+        @keyframes glitchEffect {
+            0% {
+                transform: translate(0);
+                text-shadow: 0 0 0 rgba(0, 212, 255, 0);
+            }
+            2% {
+                transform: translate(-3px, 1px);
+                text-shadow: -2px 0 rgba(112, 0, 255, 0.5);
+            }
+            4% {
+                transform: translate(3px, -1px);
+                text-shadow: 2px 0 rgba(0, 212, 255, 0.5);
+            }
+            6% {
+                transform: translate(0);
+                text-shadow: 0 0 0 rgba(0, 212, 255, 0);
+            }
+            40% {
+                transform: translate(0);
+                text-shadow: 0 0 0 rgba(0, 212, 255, 0);
+            }
+            42% {
+                transform: translate(2px, 3px);
+                text-shadow: -2px 0 rgba(112, 0, 255, 0.5);
+            }
+            44% {
+                transform: translate(-2px, -3px);
+                text-shadow: 2px 0 rgba(0, 212, 255, 0.5);
+            }
+            46% {
+                transform: translate(0);
+                text-shadow: 0 0 0 rgba(0, 212, 255, 0);
+            }
+            100% {
+                transform: translate(0);
+                text-shadow: 0 0 0 rgba(0, 212, 255, 0);
+            }
+        }
+
         h1 {
             text-align: center;
             margin-bottom: 40px;
@@ -210,37 +258,52 @@
         h1.active {
             opacity: 1;
             transform: scale(1);
+            position: relative;
+            background: linear-gradient(
+                120deg,
+                var(--primary-color) 0%,
+                var(--secondary-color) 45%,
+                var(--primary-color) 55%,
+                var(--secondary-color) 100%
+            );
+            background-size: 400% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
             animation: gradientText 10s linear infinite;
+            padding: 15px 30px;
+            overflow: hidden;
         }
 
-        h1::before {
-            content: attr(data-text);
+        /* 添加标题的动态扫描效果 */
+        h1.active::before {
+            content: '';
             position: absolute;
-            left: 0;
             top: 0;
-            width: 100%;
+            left: -100%;
+            width: 30%;
             height: 100%;
             background: linear-gradient(
                 90deg,
-                transparent 0%,
-                rgba(255, 255, 255, 0.2) 50%,
-                transparent 100%
+                transparent,
+                rgba(0, 212, 255, 0.2),
+                rgba(112, 0, 255, 0.3),
+                rgba(0, 212, 255, 0.2),
+                transparent
             );
-            background-size: 200% 100%;
-            animation: none;
-            z-index: -1;
-            opacity: 0;
-            transition: opacity 0.5s ease;
+            filter: blur(3px);
+            z-index: 1;
+            animation: dataScan 8s linear infinite;
         }
 
-        h1::after {
+        /* 添加标题的下横线效果 */
+        h1.active::after {
             content: '';
             position: absolute;
-            left: 50%;
+            left: 0;
             bottom: 0;
-            width: 60%;
+            width: 100%;
             height: 2px;
-            transform: translateX(-50%);
             background: linear-gradient(
                 90deg,
                 transparent 0%,
@@ -251,21 +314,31 @@
             );
             opacity: 0.8;
             filter: blur(1px);
-            animation: borderGlow 10s linear infinite;
+            animation: dataGlow 4s linear infinite;
         }
 
-        @keyframes borderGlow {
+        /* 添加动画关键帧 */
+        @keyframes dataScan {
             0% {
-                filter: blur(1px) brightness(1.2);
-                opacity: 0.8;
-            }
-            50% {
-                filter: blur(1.5px) brightness(1);
-                opacity: 1;
+                left: -30%;
             }
             100% {
-                filter: blur(1px) brightness(1.2);
+                left: 130%;
+            }
+        }
+
+        @keyframes dataGlow {
+            0% {
+                opacity: 0.5;
+                filter: blur(1px);
+            }
+            50% {
                 opacity: 0.8;
+                filter: blur(1.5px);
+            }
+            100% {
+                opacity: 0.5;
+                filter: blur(1px);
             }
         }
 
@@ -403,6 +476,247 @@
             z-index: 90;
         }
 
+        .explosion-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+            overflow: hidden;
+        }
+
+        .explosion-particle {
+            position: absolute;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border-radius: 50%;
+            transform: scale(0);
+            opacity: 0;
+        }
+
+        /* 添加更酷的爆炸效果 */
+        .explosion-line {
+            position: absolute;
+            height: 1px;
+            transform-origin: center;
+            background: linear-gradient(90deg, transparent, var(--primary-color), var(--secondary-color), transparent);
+            opacity: 0;
+        }
+
+        .explosion-ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 2px solid var(--primary-color);
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 0;
+            box-shadow: 0 0 20px var(--primary-color), 
+                        inset 0 0 10px var(--secondary-color);
+        }
+
+        .data-fragment {
+            position: absolute;
+            color: var(--primary-color);
+            font-family: monospace;
+            font-size: 10px;
+            opacity: 0;
+            transform: scale(0);
+            text-shadow: 0 0 5px var(--primary-color);
+        }
+
+        .cyber-flash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--primary-color);
+            opacity: 0;
+            z-index: 101;
+            pointer-events: none;
+        }
+
+        @keyframes explodeIn {
+            0% {
+                transform: scale(0);
+                opacity: 0;
+            }
+            40% {
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 0;
+            }
+        }
+
+        @keyframes explodeLine {
+            0% {
+                transform: scaleX(0);
+                opacity: 0;
+            }
+            20% {
+                opacity: 0.8;
+            }
+            100% {
+                transform: scaleX(1);
+                opacity: 0;
+            }
+        }
+
+        @keyframes ringExpand {
+            0% {
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 0.8;
+                border-width: 5px;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0;
+                border-width: 1px;
+            }
+        }
+
+        @keyframes dataFragmentFade {
+            0% {
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 0;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.2);
+                opacity: 0.9;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0;
+            }
+        }
+
+        @keyframes cyberFlash {
+            0% {
+                opacity: 0.8;
+            }
+            100% {
+                opacity: 0;
+            }
+        }
+
+        /* 高科技网格扫描效果 */
+        .scan-line {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(0, 212, 255, 0.2), 
+                rgba(0, 212, 255, 0.8), 
+                rgba(0, 212, 255, 0.2), 
+                transparent);
+            z-index: 98;
+            opacity: 0;
+        }
+
+        @keyframes scanLineMove {
+            0% {
+                top: -10px;
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.8;
+            }
+            90% {
+                opacity: 0.8;
+            }
+            100% {
+                top: 100vh;
+                opacity: 0;
+            }
+        }
+
+        /* 页面引入特效 */
+        .cyber-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 90;
+            opacity: 0;
+            transition: opacity 2s ease-out;
+        }
+
+        .cyber-circles {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 89;
+            opacity: 0;
+            transition: opacity 1.5s ease-out;
+        }
+
+        .cyber-circle {
+            position: absolute;
+            border: 1px solid var(--primary-color);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+        }
+
+        @keyframes circleExpand {
+            0% {
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 0.8;
+                border-width: 3px;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0;
+                border-width: 0.5px;
+            }
+        }
+
+        /* 数字雨效果 */
+        .digital-rain-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .digital-rain {
+            position: absolute;
+            color: var(--primary-color);
+            font-family: monospace;
+            font-size: 14px;
+            opacity: 0;
+            transform: translateY(-100%);
+        }
+
+        @keyframes digitalRainFall {
+            0% {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.8;
+            }
+            90% {
+                opacity: 0.4;
+            }
+            100% {
+                transform: translateY(100vh);
+                opacity: 0;
+            }
+        }
+
         @media (max-width: 600px) {
             .container {
                 padding: 10px;
@@ -453,11 +767,444 @@
                 );
             }
         }
+
+        /* 动态背景 */
+        .background-effects {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -10;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        /* 背景网格 */
+        .background-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 212, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 212, 255, 0.05) 1px, transparent 1px);
+            background-size: 50px 50px;
+            opacity: 0.4;
+            z-index: -9;
+        }
+
+        /* 背景星点 */
+        .star {
+            position: absolute;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            opacity: 0;
+            filter: blur(1px);
+        }
+
+        /* 背景光晕 */
+        .glow-sphere {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(
+                circle at center,
+                rgba(0, 212, 255, 0.15) 0%,
+                rgba(112, 0, 255, 0.1) 35%,
+                transparent 70%
+            );
+            opacity: 0;
+            animation: spherePulse var(--duration) ease-in-out infinite;
+            transform: translate(-50%, -50%);
+        }
+
+        @keyframes spherePulse {
+            0% {
+                transform: translate(-50%, -50%) scale(0.8);
+                opacity: var(--opacity);
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.1);
+                opacity: var(--opacity-mid);
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(0.8);
+                opacity: var(--opacity);
+            }
+        }
+
+        /* 流动线条 */
+        .flow-line {
+            position: absolute;
+            height: 1px;
+            opacity: 0;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(0, 212, 255, 0.5), 
+                rgba(112, 0, 255, 0.5), 
+                transparent
+            );
+        }
+
+        @keyframes flowLineAnimation {
+            0% {
+                opacity: 0;
+                transform: translateX(-100%) scaleX(0.1);
+            }
+            20% {
+                opacity: var(--opacity);
+                transform: translateX(-80%) scaleX(1);
+            }
+            80% {
+                opacity: var(--opacity);
+                transform: translateX(80%) scaleX(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateX(100%) scaleX(0.1);
+            }
+        }
+
+        /* 背景动态渐变 */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -11;
+            background: linear-gradient(
+                125deg,
+                rgba(10, 25, 41, 0.95) 0%,
+                rgba(26, 26, 46, 0.95) 100%
+            );
+            animation: gradientShift 30s ease-in-out infinite;
+        }
+
+        @keyframes gradientShift {
+            0% {
+                background-position: 0% 0%;
+            }
+            50% {
+                background-position: 100% 100%;
+            }
+            100% {
+                background-position: 0% 0%;
+            }
+        }
+
+        /* 背景光点移动效果 */
+        .floating-light {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: radial-gradient(
+                circle at center,
+                rgba(0, 212, 255, 0.1) 0%,
+                transparent 70%
+            );
+            filter: blur(5px);
+            opacity: 0.3;
+            animation: floatAnimation var(--duration) ease-in-out infinite;
+        }
+
+        @keyframes floatAnimation {
+            0% {
+                transform: translate(0, 0);
+            }
+            25% {
+                transform: translate(var(--tx1), var(--ty1));
+            }
+            50% {
+                transform: translate(var(--tx2), var(--ty2));
+            }
+            75% {
+                transform: translate(var(--tx3), var(--ty3));
+            }
+            100% {
+                transform: translate(0, 0);
+            }
+        }
+
+        /* 新的入场动画容器 */
+        .intro-animation-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        /* 科技网格 */
+        .tech-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 212, 255, 0.15) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 212, 255, 0.15) 1px, transparent 1px);
+            background-size: 40px 40px;
+            opacity: 0;
+            transform: perspective(1000px) rotateX(60deg) scale(2) translateY(100px);
+            transform-origin: center bottom;
+        }
+
+        /* 圆形加载器 */
+        .circular-loader {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 60px rgba(0, 212, 255, 0.5);
+            opacity: 0;
+        }
+
+        /* 数据流线条 */
+        .data-stream {
+            position: absolute;
+            height: 2px;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(0, 212, 255, 0.6), 
+                rgba(112, 0, 255, 0.6), 
+                transparent);
+            opacity: 0;
+            transform-origin: left center;
+        }
+
+        /* 扫描线 */
+        .scan-beam {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(0, 212, 255, 0.8) 20%, 
+                var(--primary-color) 50%,
+                rgba(112, 0, 255, 0.8) 80%, 
+                transparent 100%);
+            top: 50%;
+            left: 0;
+            opacity: 0;
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.6);
+            filter: blur(1px);
+            transform: translateY(-50%);
+        }
+
+        /* 界面元素 */
+        .interface-element {
+            position: absolute;
+            border: 1px solid var(--primary-color);
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.3), inset 0 0 5px rgba(0, 212, 255, 0.2);
+            opacity: 0;
+            background-color: rgba(0, 212, 255, 0.05);
+        }
+
+        /* 界面元素内部 */
+        .interface-content {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            right: 8px;
+            bottom: 8px;
+            overflow: hidden;
+            font-family: monospace;
+            font-size: 10px;
+            color: var(--primary-color);
+            opacity: 0.8;
+        }
+
+        /* 数据点 */
+        .data-node {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--primary-color);
+            opacity: 0;
+            transform: scale(0);
+        }
+
+        /* 连接线 */
+        .connecting-line {
+            position: absolute;
+            height: 1px;
+            background-color: var(--primary-color);
+            opacity: 0;
+            transform-origin: left center;
+        }
+
+        /* 光晕覆盖 */
+        .glow-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(
+                circle at center,
+                transparent 30%,
+                rgba(10, 25, 41, 0.8) 100%
+            );
+            z-index: 99;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* 动画关键帧 */
+        @keyframes gridAppear {
+            0% {
+                opacity: 0;
+                transform: perspective(1000px) rotateX(60deg) scale(2) translateY(100px);
+            }
+            100% {
+                opacity: 0.8;
+                transform: perspective(1000px) rotateX(60deg) scale(1) translateY(0);
+            }
+        }
+
+        @keyframes gridDisappear {
+            0% {
+                opacity: 0.8;
+                transform: perspective(1000px) rotateX(60deg) scale(1) translateY(0);
+            }
+            100% {
+                opacity: 0;
+                transform: perspective(1000px) rotateX(60deg) scale(0.8) translateY(-50px);
+            }
+        }
+
+        @keyframes circularExpand {
+            0% {
+                width: 0;
+                height: 0;
+                opacity: 0.9;
+                border: 3px solid var(--primary-color);
+            }
+            100% {
+                width: 400px;
+                height: 400px;
+                opacity: 0;
+                border: 1px solid var(--primary-color);
+            }
+        }
+
+        @keyframes dataStreamFlow {
+            0% {
+                transform: scaleX(0);
+                opacity: 0;
+            }
+            10% {
+                transform: scaleX(0.1);
+                opacity: 0.8;
+            }
+            90% {
+                transform: scaleX(0.9);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scaleX(1);
+                opacity: 0;
+            }
+        }
+
+        @keyframes scanBeam {
+            0% {
+                top: 0;
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.8;
+            }
+            90% {
+                opacity: 0.8;
+            }
+            100% {
+                top: 100%;
+                opacity: 0;
+            }
+        }
+
+        @keyframes interfaceAppear {
+            0% {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes interfaceDisappear {
+            0% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(1.1);
+            }
+        }
+
+        @keyframes nodeAppear {
+            0% {
+                opacity: 0;
+                transform: scale(0);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.5);
+            }
+            100% {
+                opacity: 0.8;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes lineConnect {
+            0% {
+                transform: scaleX(0);
+                opacity: 0;
+            }
+            100% {
+                transform: scaleX(1);
+                opacity: 0.6;
+            }
+        }
+
+        @keyframes overlayFade {
+            0% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+            }
+        }
+
+        @keyframes typingEffect {
+            0% { width: 0; }
+            100% { width: 100%; }
+        }
     </style>
 </head>
 <body>
 <div class="cursor-dot"></div>
 <div class="cursor-outline"></div>
+<div class="intro-animation-container"></div>
+<div class="glow-overlay"></div>
 <div class="container">
     <h1>阿奎GPT欢迎您</h1>
     <div class="table-container">
@@ -468,11 +1215,16 @@
     </div>
 </div>
 
+<div class="background-effects">
+    <div class="background-grid"></div>
+    <!-- 动态生成的星点、光晕和线条将添加到这里 -->
+</div>
+
 <script>
 // 存储上一次的所有内容
 let previousRows = new Map();
 
-// 初始化时记录当前所有内容
+// 修改初始化函数，统一管理入场动画
 document.addEventListener('DOMContentLoaded', function() {
     const rows = document.querySelectorAll('#data-table tr');
     rows.forEach(row => {
@@ -486,35 +1238,49 @@ document.addEventListener('DOMContentLoaded', function() {
     // 添加复制按钮
     addCopyButtons();
     
-    // 为标题添加粒子聚合动画
+    // 初始化鼠标效果
+    initCursorEffect();
+    
+    // 确保存在动画容器
+    if (!document.querySelector('.intro-animation-container')) {
+        const animContainer = document.createElement('div');
+        animContainer.className = 'intro-animation-container';
+        document.body.appendChild(animContainer);
+    }
+    
+    if (!document.querySelector('.glow-overlay')) {
+        const glowOverlay = document.createElement('div');
+        glowOverlay.className = 'glow-overlay';
+        document.body.appendChild(glowOverlay);
+    }
+    
+    // 立即确保标题可见（以防万一其他动画失败）
     const h1 = document.querySelector('h1');
     if (h1) {
-        const text = h1.textContent;
-        h1.setAttribute('data-text', text);
-        
-        // 隐藏原始标题等待粒子动画
-        h1.style.opacity = '0';
-        
-        // 创建粒子容器
-        const particleContainer = document.createElement('div');
-        particleContainer.className = 'particle-container';
-        particleContainer.style.position = 'absolute';
-        particleContainer.style.top = '0';
-        particleContainer.style.left = '0';
-        particleContainer.style.width = '100%';
-        particleContainer.style.height = '100%';
-        particleContainer.style.pointerEvents = 'none';
-        particleContainer.style.zIndex = '1000';
-        document.querySelector('.container').appendChild(particleContainer);
-        
-        // 创建粒子动画
-        setTimeout(() => {
-            createTitleParticlesAnimation(h1, particleContainer);
-        }, 300); // 略微延迟确保页面已加载
+        // 先直接添加激活类，让标题立即可见
+        h1.classList.add('active');
+        h1.style.opacity = '1';
     }
-
-    initCursorEffect();
+    
+    // 入场动画序列 - 按顺序执行动画，避免重叠
+    setTimeout(() => {
+        // 执行现代科技风入场效果
+        createModernTechIntro();
+        
+        // 再次确保标题可见
+        setTimeout(() => {
+            if (h1) {
+                h1.classList.add('active');
+                h1.style.opacity = '1';
+            }
+        }, 1500);
+    }, 200);
+    
+    // 初始化鼠标移动粒子效果，但不作为入场动画的一部分
     initParticleEffect();
+    
+    // 初始化背景效果
+    initBackgroundEffects();
 });
 
 // 复制功能
@@ -716,152 +1482,403 @@ function initParticleEffect() {
     });
 }
 
-// 优化标题粒子动画函数
-function createTitleParticlesAnimation(titleElement, container) {
-    // 针对不同设备优化参数
-    const isMobile = window.innerWidth <= 768;
-    const particleCount = isMobile ? 800 : 400; // 在桌面端减少粒子数量
-    const duration = 2000; // 进一步缩短动画时间
-    const particles = [];
+// 高科技入场动画函数
+function createModernTechIntro() {
+    const container = document.querySelector('.intro-animation-container');
+    if (!container) return; // 安全检查
     
-    const rect = titleElement.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
+    // 清空容器
+    container.innerHTML = '';
     
-    // 增加网格大小，减少粒子密度
-    const gridSize = isMobile ? 8 : 12;
-    const cols = Math.floor(width / gridSize);
-    const rows = Math.floor(height / gridSize);
-    
-    // 创建离屏容器以减少DOM操作
-    const fragment = document.createDocumentFragment();
-    
-    // 优化粒子创建
-    for (let i = 0; i < particleCount; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'title-particle';
-        
-        const col = i % cols;
-        const row = Math.floor((i / cols) % rows);
-        const targetX = rect.left + (col * gridSize) + (Math.random() * gridSize);
-        const targetY = rect.top + (row * gridSize) + (Math.random() * gridSize);
-        
-        // 优化起始位置分布
-        const angle = (i / particleCount) * Math.PI * 2 + Math.random() * 0.5;
-        const distance = Math.random() * 200 + 100; // 减小起始距离范围
-        
-        const startX = rect.left + width/2 + Math.cos(angle) * distance;
-        const startY = rect.top + height/2 + Math.sin(angle) * distance;
-        
-        // 优化粒子样式，减少阴影效果
-        particle.style.cssText = `
-            position: fixed;
-            width: ${Math.random() * 1.5 + 1}px;
-            height: ${Math.random() * 1.5 + 1}px;
-            background: var(--primary-color);
-            box-shadow: 0 0 ${Math.random() * 2 + 1}px var(--primary-color);
-            left: ${startX}px;
-            top: ${startY}px;
-            opacity: 0;
-            border-radius: 50%;
-            will-change: transform, opacity;
-            transform-origin: center;
-            pointer-events: none;
-        `;
-        
-        fragment.appendChild(particle);
-        
-        particles.push({
-            element: particle,
-            startX,
-            startY,
-            targetX,
-            targetY,
-            delay: Math.random() * 300, // 减少延迟时间
-            size: Math.random()
-        });
+    // 创建光晕覆盖效果
+    const glowOverlay = document.querySelector('.glow-overlay');
+    if (glowOverlay) {
+        glowOverlay.style.opacity = '1';
+        setTimeout(() => {
+            glowOverlay.style.animation = 'overlayFade 1.5s ease-out forwards';
+        }, 1000);
     }
     
-    // 一次性添加所有粒子
-    document.body.appendChild(fragment);
+    // 创建科技网格
+    const techGrid = document.createElement('div');
+    techGrid.className = 'tech-grid';
+    techGrid.style.animation = 'gridAppear 1.5s ease-out forwards';
+    container.appendChild(techGrid);
     
-    const startTime = performance.now();
-    let rafId;
+    // 在动画结束前隐藏网格
+    setTimeout(() => {
+        techGrid.style.animation = 'gridDisappear 0.8s ease-in forwards';
+    }, 3000);
     
-    function animate() {
-        const now = performance.now();
-        const elapsed = now - startTime;
-        const progress = Math.min(1, elapsed / duration);
-        
-        // 使用transform3d触发GPU加速
-        particles.forEach((p, i) => {
-            if (elapsed < p.delay) return;
-            
-            const particleProgress = Math.min(1, (elapsed - p.delay) / (duration - p.delay));
-            const ease = easeOutQuart(particleProgress); // 使用性能更好的缓动函数
-            
-            const x = p.startX + (p.targetX - p.startX) * ease;
-            const y = p.startY + (p.targetY - p.startY) * ease;
-            
-            // 减少波动效果
-            const wobble = Math.sin(elapsed * 0.006 + i) * (1 - ease) * 1;
-            
-            p.element.style.transform = `translate3d(${x - p.startX}px, ${y - p.startY + wobble}px, 0)`;
-            p.element.style.opacity = particleProgress * (0.4 + p.size * 0.6);
-        });
-        
-        if (progress < 1) {
-            rafId = requestAnimationFrame(animate);
-        } else {
-            cleanupAnimation();
-        }
-    }
-    
-    // 优化清理动画
-    function cleanupAnimation() {
-        cancelAnimationFrame(rafId);
-        titleElement.style.opacity = '0';
-        titleElement.classList.add('active');
-        
-        // 使用更大的批次size，减少setTimeout调用次数
-        const batchSize = 40;
-        const batchDelay = 8;
-        
-        for (let i = 0; i < particles.length; i += batchSize) {
-            const batch = particles.slice(i, i + batchSize);
+    // 创建圆形加载器
+    for (let i = 0; i < 3; i++) {
+        setTimeout(() => {
+            const circle = document.createElement('div');
+            circle.className = 'circular-loader';
+            circle.style.animation = `circularExpand ${1.2 + i * 0.2}s cubic-bezier(0.2, 0.8, 0.2, 1) forwards`;
+            container.appendChild(circle);
             
             setTimeout(() => {
-                batch.forEach(p => {
-                    const randomAngle = Math.random() * Math.PI * 2;
-                    const randomDistance = Math.random() * 30 + 20; // 减小消失距离
-                    const dx = Math.cos(randomAngle) * randomDistance;
-                    const dy = Math.sin(randomAngle) * randomDistance;
-                    
-                    p.element.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-                    p.element.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(0)`;
-                    p.element.style.opacity = '0';
-                });
-                
-                // 批量移除元素
-                setTimeout(() => {
-                    batch.forEach(p => p.element.remove());
-                }, 300);
-            }, i / batchSize * batchDelay);
-        }
+                circle.remove();
+            }, (1.2 + i * 0.2) * 1000 + 100);
+        }, i * 300);
+    }
+    
+    // 创建扫描线
+    setTimeout(() => {
+        const scanBeam = document.createElement('div');
+        scanBeam.className = 'scan-beam';
+        scanBeam.style.animation = 'scanBeam 2s ease-in-out forwards';
+        container.appendChild(scanBeam);
         
-        // 更快显示标题
         setTimeout(() => {
-            titleElement.style.opacity = '1';
-            titleElement.style.transform = 'scale(1)';
-        }, 150);
+            scanBeam.remove();
+        }, 2000);
+    }, 800);
+    
+    // 创建数据流线条
+    for (let i = 0; i < 12; i++) {
+        setTimeout(() => {
+            const stream = document.createElement('div');
+            stream.className = 'data-stream';
+            
+            const y = 10 + Math.random() * 80; // 垂直位置
+            const width = 40 + Math.random() * 60; // 线条宽度百分比
+            const height = 1 + Math.random() * 1; // 线条高度
+            const duration = 0.8 + Math.random() * 0.8; // 动画持续时间
+            const leftPos = Math.random() > 0.5 ? 0 : (100 - width); // 从左边或右边开始
+            
+            stream.style.width = `${width}%`;
+            stream.style.height = `${height}px`;
+            stream.style.top = `${y}%`;
+            stream.style.left = `${leftPos}%`;
+            stream.style.animation = `dataStreamFlow ${duration}s linear forwards`;
+            
+            container.appendChild(stream);
+            
+            setTimeout(() => {
+                stream.remove();
+            }, duration * 1000 + 100);
+        }, 500 + i * 200);
     }
     
-    // 使用性能更好的缓动函数
-    function easeOutQuart(t) {
-        return 1 - (--t) * t * t * t;
+    // 创建界面元素
+    const interfaceElements = [
+        { top: '10%', left: '5%', width: '25%', height: '20%', delay: 1000 },
+        { top: '15%', left: '70%', width: '25%', height: '30%', delay: 1300 },
+        { top: '60%', left: '12%', width: '20%', height: '25%', delay: 1600 },
+        { top: '50%', left: '60%', width: '30%', height: '20%', delay: 1900 }
+    ];
+    
+    interfaceElements.forEach(el => {
+        setTimeout(() => {
+            const element = document.createElement('div');
+            element.className = 'interface-element';
+            element.style.top = el.top;
+            element.style.left = el.left;
+            element.style.width = el.width;
+            element.style.height = el.height;
+            element.style.animation = 'interfaceAppear 0.8s ease-out forwards';
+            
+            // 添加随机内容
+            const content = document.createElement('div');
+            content.className = 'interface-content';
+            
+            // 模拟数据加载
+            const textContent = generateRandomTechContent();
+            
+            // 创建打字机效果的元素
+            const typingContent = document.createElement('div');
+            typingContent.style.whiteSpace = 'pre-wrap';
+            typingContent.style.overflow = 'hidden';
+            typingContent.textContent = textContent;
+            typingContent.style.animation = 'typingEffect 1s steps(40, end) forwards';
+            typingContent.style.width = '0';
+            
+            content.appendChild(typingContent);
+            element.appendChild(content);
+            container.appendChild(element);
+            
+            // 2.5秒后淡出
+            setTimeout(() => {
+                element.style.animation = 'interfaceDisappear 0.6s ease-in forwards';
+                setTimeout(() => {
+                    element.remove();
+                }, 600);
+            }, 2500);
+        }, el.delay);
+    });
+    
+    // 创建数据节点网络
+    setTimeout(() => {
+        createDataNetwork(container);
+    }, 2200);
+    
+    // 确保标题可见
+    setTimeout(() => {
+        const h1 = document.querySelector('h1');
+        if (h1) {
+            h1.classList.add('active');
+            h1.style.opacity = '1';
+        }
+    }, 3500);
+}
+
+// 创建数据节点网络
+function createDataNetwork(container) {
+    const nodeCount = window.innerWidth < 768 ? 8 : 15;
+    const nodes = [];
+    
+    // 创建节点
+    for (let i = 0; i < nodeCount; i++) {
+        const node = document.createElement('div');
+        node.className = 'data-node';
+        
+        const x = 10 + Math.random() * 80;
+        const y = 10 + Math.random() * 80;
+        
+        node.style.left = `${x}%`;
+        node.style.top = `${y}%`;
+        node.style.animation = `nodeAppear ${0.5 + Math.random() * 0.5}s ease-out forwards`;
+        node.style.animationDelay = `${Math.random() * 0.5}s`;
+        
+        container.appendChild(node);
+        nodes.push({ element: node, x, y });
+        
+        // 1.5秒后淡出
+        setTimeout(() => {
+            node.style.opacity = '0';
+            node.style.transition = 'opacity 0.5s ease-out';
+            setTimeout(() => {
+                node.remove();
+            }, 500);
+        }, 1500 + Math.random() * 500);
     }
     
-    animate();
+    // 创建连接线 - 连接一些邻近节点
+    setTimeout(() => {
+        for (let i = 0; i < nodes.length; i++) {
+            const node = nodes[i];
+            
+            // 为每个节点连接到最近的2-3个节点
+            const connections = Math.floor(Math.random() * 2) + 2;
+            for (let c = 0; c < connections; c++) {
+                // 随机选择另一个节点
+                const targetIndex = Math.floor(Math.random() * nodes.length);
+                if (targetIndex !== i) {
+                    const targetNode = nodes[targetIndex];
+                    
+                    const line = document.createElement('div');
+                    line.className = 'connecting-line';
+                    
+                    // 使用数学计算线条位置和角度
+                    const dx = (targetNode.x - node.x) * window.innerWidth / 100;
+                    const dy = (targetNode.y - node.y) * window.innerHeight / 100;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                    
+                    line.style.width = `${distance}px`;
+                    line.style.left = `${node.x}%`;
+                    line.style.top = `${node.y}%`;
+                    line.style.transform = `rotate(${angle}deg)`;
+                    line.style.transformOrigin = 'left center';
+                    line.style.animation = 'lineConnect 0.6s ease-out forwards';
+                    line.style.animationDelay = `${Math.random() * 0.3}s`;
+                    
+                    container.appendChild(line);
+                    
+                    // 1.5秒后淡出
+                    setTimeout(() => {
+                        line.style.opacity = '0';
+                        line.style.transition = 'opacity 0.5s ease-out';
+                        setTimeout(() => {
+                            line.remove();
+                        }, 500);
+                    }, 1500 + Math.random() * 500);
+                }
+            }
+        }
+    }, 300);
+}
+
+// 生成随机科技风格文本内容
+function generateRandomTechContent() {
+    const lines = [
+        "系统初始化...",
+        "加载核心模块...",
+        "连接数据网络...",
+        "初始化用户界面...",
+        "扫描安全协议...",
+        "分析用户数据...",
+        "加载完成: 100%",
+        "正在验证访问权限...",
+        "建立安全连接...",
+        "初始化AI引擎...",
+        "优化系统性能..."
+    ];
+    
+    let result = "";
+    const lineCount = 3 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < lineCount; i++) {
+        result += lines[Math.floor(Math.random() * lines.length)] + "\n";
+    }
+    return result;
+}
+
+// 初始化背景效果
+function initBackgroundEffects() {
+    const container = document.querySelector('.background-effects');
+    if (!container) return;
+    
+    // 创建星点
+    createStars(container);
+    
+    // 创建光晕效果
+    createGlowSpheres(container);
+    
+    // 创建流动线条
+    createFlowLines(container);
+    
+    // 创建浮动光点
+    createFloatingLights(container);
+}
+
+// 创建星点
+function createStars(container) {
+    const starCount = window.innerWidth < 768 ? 100 : 200;
+    
+    for (let i = 0; i < starCount; i++) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        
+        const size = Math.random() * 2 + 1;
+        const x = Math.random() * 100;
+        const y = Math.random() * 100;
+        const duration = Math.random() * 3 + 2;
+        const delay = Math.random() * 5;
+        
+        star.style.width = `${size}px`;
+        star.style.height = `${size}px`;
+        star.style.left = `${x}%`;
+        star.style.top = `${y}%`;
+        
+        // 闪烁动画
+        star.style.animation = `starBlink ${duration}s ease-in-out ${delay}s infinite`;
+        star.style.opacity = Math.random() * 0.5 + 0.1;
+        
+        container.appendChild(star);
+    }
+    
+    // 添加星点闪烁动画
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes starBlink {
+            0%, 100% { opacity: var(--min-opacity, 0.1); transform: scale(1); }
+            50% { opacity: var(--max-opacity, 0.6); transform: scale(1.2); }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// 创建光晕
+function createGlowSpheres(container) {
+    const sphereCount = window.innerWidth < 768 ? 4 : 8;
+    
+    for (let i = 0; i < sphereCount; i++) {
+        const sphere = document.createElement('div');
+        sphere.className = 'glow-sphere';
+        
+        const size = Math.random() * 400 + 200;
+        const x = Math.random() * 100;
+        const y = Math.random() * 100;
+        const duration = Math.random() * 15 + 10;
+        const opacity = Math.random() * 0.15 + 0.05;
+        
+        sphere.style.width = `${size}px`;
+        sphere.style.height = `${size}px`;
+        sphere.style.left = `${x}%`;
+        sphere.style.top = `${y}%`;
+        sphere.style.setProperty('--duration', `${duration}s`);
+        sphere.style.setProperty('--opacity', opacity);
+        sphere.style.setProperty('--opacity-mid', opacity * 1.5);
+        
+        container.appendChild(sphere);
+    }
+}
+
+// 创建流动线条
+function createFlowLines(container) {
+    const lineCount = window.innerWidth < 768 ? 6 : 10;
+    
+    // 周期性创建线条
+    function createLine() {
+        const line = document.createElement('div');
+        line.className = 'flow-line';
+        
+        const y = Math.random() * 100;
+        const width = Math.random() * 30 + 20;
+        const height = Math.random() * 1 + 1;
+        const duration = Math.random() * 8 + 6;
+        const opacity = Math.random() * 0.15 + 0.05;
+        
+        line.style.width = `${width}%`;
+        line.style.height = `${height}px`;
+        line.style.left = '50%';
+        line.style.top = `${y}%`;
+        line.style.setProperty('--opacity', opacity);
+        line.style.animation = `flowLineAnimation ${duration}s linear forwards`;
+        
+        container.appendChild(line);
+        
+        setTimeout(() => {
+            line.remove();
+        }, duration * 1000);
+    }
+    
+    // 初始创建多条线
+    for (let i = 0; i < lineCount; i++) {
+        setTimeout(createLine, i * 1000);
+    }
+    
+    // 周期性创建新线条
+    setInterval(createLine, 3000);
+}
+
+// 创建浮动光点
+function createFloatingLights(container) {
+    const lightCount = window.innerWidth < 768 ? 3 : 5;
+    
+    for (let i = 0; i < lightCount; i++) {
+        const light = document.createElement('div');
+        light.className = 'floating-light';
+        
+        const size = Math.random() * 200 + 100;
+        const x = Math.random() * 90 + 5;
+        const y = Math.random() * 90 + 5;
+        const duration = Math.random() * 20 + 15;
+        
+        // 随机移动路径
+        const tx1 = (Math.random() - 0.5) * 30;
+        const ty1 = (Math.random() - 0.5) * 30;
+        const tx2 = (Math.random() - 0.5) * 30;
+        const ty2 = (Math.random() - 0.5) * 30;
+        const tx3 = (Math.random() - 0.5) * 30;
+        const ty3 = (Math.random() - 0.5) * 30;
+        
+        light.style.width = `${size}px`;
+        light.style.height = `${size}px`;
+        light.style.left = `${x}%`;
+        light.style.top = `${y}%`;
+        light.style.setProperty('--duration', `${duration}s`);
+        light.style.setProperty('--tx1', `${tx1}%`);
+        light.style.setProperty('--ty1', `${ty1}%`);
+        light.style.setProperty('--tx2', `${tx2}%`);
+        light.style.setProperty('--ty2', `${ty2}%`);
+        light.style.setProperty('--tx3', `${tx3}%`);
+        light.style.setProperty('--ty3', `${ty3}%`);
+        
+        container.appendChild(light);
+    }
 }
 </script>
 </body>
