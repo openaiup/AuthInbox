@@ -14,6 +14,7 @@
             --surface-color: rgba(255, 255, 255, 0.05);
             --text-color: #ffffff;
             --border-color: rgba(255, 255, 255, 0.1);
+            --animation-speed: 1;
         }
 
         body {
@@ -28,19 +29,22 @@
             position: relative;
             overflow-x: hidden;
             opacity: 0;
-            animation: fadeIn 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            animation: fadeIn 1.8s cubic-bezier(0.3, 0, 0.3, 1) forwards 0.5s;
             overflow-y: overlay;
             -ms-overflow-style: none;  /* IE 和 Edge */
             scrollbar-width: none;     /* Firefox */
         }
 
         @keyframes fadeIn {
-            from { 
+            0% { 
                 opacity: 0; 
-                transform: translateY(30px) scale(0.98);
-                filter: blur(10px);
+                transform: translateY(40px) scale(0.95);
+                filter: blur(15px);
             }
-            to { 
+            60% {
+                filter: blur(2px);
+            }
+            100% { 
                 opacity: 1; 
                 transform: translateY(0) scale(1);
                 filter: blur(0);
@@ -203,14 +207,14 @@
             background-clip: text;
             -webkit-text-fill-color: transparent;
             opacity: 0;
-            transform: scale(0.98);
-            transition: opacity 0.5s ease;
+            transform: translateY(20px);
+            transition: all 0.8s cubic-bezier(0.2, 0.9, 0.3, 1);
         }
 
         h1.active {
             opacity: 1;
-            transform: scale(1);
-            animation: gradientText 10s linear infinite;
+            transform: translateY(0);
+            animation: subtleGradient 10s ease-in-out infinite;
         }
 
         h1::before {
@@ -238,7 +242,7 @@
             position: absolute;
             left: 50%;
             bottom: 0;
-            width: 60%;
+            width: 30%;
             height: 2px;
             transform: translateX(-50%);
             background: linear-gradient(
@@ -251,21 +255,26 @@
             );
             opacity: 0.8;
             filter: blur(1px);
-            animation: borderGlow 10s linear infinite;
+            animation: borderBreath 8s ease-in-out infinite;
+            box-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
+            border-radius: 1px;
         }
 
-        @keyframes borderGlow {
+        @keyframes borderBreath {
             0% {
+                width: 30%;
                 filter: blur(1px) brightness(1.2);
-                opacity: 0.8;
+                opacity: 0.7;
             }
             50% {
-                filter: blur(1.5px) brightness(1);
+                width: 150%;
+                filter: blur(1.5px) brightness(1.5);
                 opacity: 1;
             }
             100% {
+                width: 30%;
                 filter: blur(1px) brightness(1.2);
-                opacity: 0.8;
+                opacity: 0.7;
             }
         }
 
@@ -281,20 +290,18 @@
             transition: all 0.3s ease;
             opacity: 0;
             transform: translateY(40px);
-            animation: slideUp 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-            animation-delay: 2.8s;
+            animation: smoothSlideUp 1.2s cubic-bezier(0.2, 0.9, 0.3, 1.1) forwards;
+            animation-delay: 6s;
         }
 
-        @keyframes slideUp {
-            from { 
+        @keyframes smoothSlideUp {
+            0% { 
                 opacity: 0;
-                transform: translateY(40px) scale(0.96);
-                filter: blur(8px);
+                transform: translateY(30px);
             }
-            to {
+            100% {
                 opacity: 1;
-                transform: translateY(0) scale(1);
-                filter: blur(0);
+                transform: translateY(0);
             }
         }
 
@@ -323,7 +330,8 @@
         }
 
         tr {
-            transition: all 0.3s ease;
+            opacity: 0;
+            transform: translateY(15px);
         }
 
         tr:hover {
@@ -453,6 +461,416 @@
                 );
             }
         }
+
+        .explosion-particle {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            border-radius: 50%;
+            will-change: transform, opacity;
+            transform-origin: center center;
+        }
+
+        @keyframes particleExplode {
+            0% {
+                transform: translate(-50%, -50%) scale(0.1);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--tx), var(--ty)) scale(var(--scale));
+                opacity: 0;
+            }
+        }
+
+        @keyframes floatParticle {
+            0% {
+                transform: translate(var(--tx), var(--ty)) scale(var(--scale)) rotate(0deg);
+            }
+            50% {
+                transform: translate(calc(var(--tx) + var(--dx)), calc(var(--ty) + var(--dy))) scale(var(--scale)) rotate(var(--rot));
+            }
+            100% {
+                transform: translate(var(--tx), var(--ty)) scale(var(--scale)) rotate(0deg);
+            }
+        }
+
+        @keyframes shockwaveExpand {
+            0% {
+                transform: translate(-50%, -50%) scale(0.1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(30);
+                opacity: 0;
+            }
+        }
+
+        /* 添加星光效果 */
+        .star-particle {
+            position: fixed;
+            background-color: white;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0;
+            z-index: 997;
+            animation: starTwinkle 3s ease-in-out infinite;
+        }
+
+        @keyframes starTwinkle {
+            0%, 100% { opacity: 0; transform: scale(0.1); }
+            50% { opacity: 0.8; transform: scale(1); }
+        }
+
+        /* 添加新的入场动画样式 */
+        .elegant-intro {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .intro-circle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            opacity: 0;
+            filter: blur(5px);
+        }
+
+        .intro-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+            font-weight: 700;
+            color: white;
+            opacity: 0;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .intro-line {
+            position: absolute;
+            background: var(--primary-color);
+            transform-origin: center;
+            opacity: 0;
+        }
+
+        .intro-fade {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--background-color);
+            opacity: 1;
+        }
+
+        @keyframes subtleGradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .epic-intro {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 25, 41, 0.9);
+            z-index: 10000;
+            overflow: hidden;
+            transition: opacity 1s ease;
+        }
+
+        .epic-intro.fade-out {
+            opacity: 0;
+        }
+
+        .intro-perspective {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            perspective: 1000px;
+            transform-style: preserve-3d;
+            transition: transform 1.5s cubic-bezier(0.2, 0.9, 0.4, 1);
+        }
+
+        .intro-perspective.rotate-out {
+            transform: rotateX(20deg) rotateY(-20deg) translateZ(-500px);
+            opacity: 0;
+        }
+
+        /* 网格背景样式 */
+        .grid-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 480px;
+            height: 480px;
+            transform: translate(-50%, -50%) rotateX(60deg) rotateZ(45deg);
+            transform-style: preserve-3d;
+            opacity: 0;
+            transition: opacity 1s ease, transform 2s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+        }
+
+        .grid-container.animate {
+            opacity: 0.6;
+            transform: translate(-50%, -50%) rotateX(60deg) rotateZ(45deg) translateZ(100px);
+        }
+
+        .grid-line {
+            position: absolute;
+            background: linear-gradient(to right, rgba(0, 212, 255, 0), rgba(0, 212, 255, 0.5), rgba(0, 212, 255, 0));
+            transform-style: preserve-3d;
+            opacity: 0;
+            animation: gridLineAppear 1.5s ease forwards;
+        }
+
+        .grid-line.horizontal {
+            width: 100%;
+            height: 1px;
+            left: 0;
+        }
+
+        .grid-line.vertical {
+            width: 1px;
+            height: 100%;
+            top: 0;
+            background: linear-gradient(to bottom, rgba(0, 212, 255, 0), rgba(0, 212, 255, 0.5), rgba(0, 212, 255, 0));
+        }
+
+        @keyframes gridLineAppear {
+            0% {
+                opacity: 0;
+                transform: scaleX(0);
+            }
+            100% {
+                opacity: 0.7;
+                transform: scaleX(1);
+            }
+        }
+
+        /* 粒子样式 */
+        .particles-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            opacity: 0;
+            transition: opacity 1s ease;
+        }
+
+        .particles-container.visible {
+            opacity: 1;
+        }
+
+        .intro-particle {
+            position: absolute;
+            border-radius: 50%;
+            box-shadow: 0 0 10px 2px rgba(0, 212, 255, 0.5);
+            opacity: 0;
+            animation: particleFloat 5s ease-in-out infinite alternate;
+            animation-fill-mode: both;
+        }
+
+        @keyframes particleFloat {
+            0% {
+                opacity: 0;
+                transform: translateZ(0) translateX(0) translateY(0);
+            }
+            20% {
+                opacity: 0.8;
+            }
+            100% {
+                opacity: 0.5;
+                transform: translateZ(var(--tz, 50px)) translateX(calc(var(--tx, 1) * 30px)) translateY(calc(var(--ty, 1) * 30px));
+            }
+        }
+
+        /* 3D 文本效果 */
+        .text-3d-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            justify-content: center;
+            perspective: 1000px;
+            transform-style: preserve-3d;
+            z-index: 1001;
+        }
+
+        .letter-3d {
+            font-size: 5rem;
+            font-weight: 900;
+            color: white;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.8);
+            margin: 0 5px;
+            opacity: 0;
+            transform: translateZ(-100px) rotateY(90deg);
+            transition: all 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+            transform-style: preserve-3d;
+        }
+
+        .letter-3d.visible {
+            opacity: 1;
+            transform: translateZ(0) rotateY(0);
+        }
+
+        .letter-3d::before,
+        .letter-3d::after {
+            content: attr(data-letter);
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: all 0.4s;
+        }
+
+        .letter-3d::before {
+            color: var(--primary-color);
+            transform: translateZ(-1px);
+            filter: blur(1px);
+        }
+
+        .letter-3d::after {
+            color: var(--secondary-color);
+            transform: translateZ(1px);
+            filter: blur(1px);
+        }
+
+        /* 光效样式 */
+        .glow-effect {
+            position: absolute;
+            opacity: 0;
+            transition: opacity 1s ease;
+            pointer-events: none;
+        }
+
+        .glow-effect.visible {
+            opacity: 1;
+        }
+
+        .main-glow {
+            top: 50%;
+            left: 50%;
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.2) 0%, rgba(112, 0, 255, 0.1) 50%, transparent 70%);
+            animation: pulseGlow 4s ease-in-out infinite;
+        }
+
+        .light-ray {
+            top: 50%;
+            left: 50%;
+            width: 300px;
+            height: 1px;
+            transform-origin: left center;
+            background: linear-gradient(to right, rgba(0, 212, 255, 0.8), transparent);
+            transform: translate(0, -50%);
+            filter: blur(1px);
+            animation: rayRotate 8s linear infinite;
+        }
+
+        .light-spot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            filter: blur(5px);
+            animation: spotPulse 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% {
+                transform: translate(-50%, -50%) scale(1);
+                filter: blur(20px);
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.5);
+                filter: blur(30px);
+            }
+        }
+
+        @keyframes rayRotate {
+            0% {
+                transform: translate(0, -50%) rotate(0deg);
+            }
+            100% {
+                transform: translate(0, -50%) rotate(360deg);
+            }
+        }
+
+        @keyframes spotPulse {
+            0% {
+                opacity: 0.3;
+                transform: scale(1);
+            }
+            100% {
+                opacity: 0.8;
+                transform: scale(2);
+            }
+        }
+
+        /* 添加一个动画完成的标志类 */
+        .animation-completed .table-container {
+            animation: none !important;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .animation-completed tr {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* 添加一个更细微的双重下划线效果 */
+        h1::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            bottom: -3px;
+            width: 15%;
+            height: 1px;
+            transform: translateX(-50%);
+            background: var(--secondary-color);
+            opacity: 0.6;
+            filter: blur(1px);
+            animation: secondBorderBreath 8s ease-in-out infinite;
+        }
+
+        @keyframes secondBorderBreath {
+            0% {
+                width: 15%;
+                opacity: 0.6;
+            }
+            50% {
+                width: 110%;
+                opacity: 0.3;
+            }
+            100% {
+                width: 15%;
+                opacity: 0.6;
+            }
+        }
     </style>
 </head>
 <body>
@@ -474,6 +892,18 @@ let previousRows = new Map();
 
 // 初始化时记录当前所有内容
 document.addEventListener('DOMContentLoaded', function() {
+    // 阻止表格显示，直到入场动画完成
+    const tableContainer = document.querySelector('.table-container');
+    if (tableContainer) {
+        // 先移除自动动画
+        tableContainer.style.animation = 'none';
+        tableContainer.style.opacity = '0';
+        tableContainer.style.transform = 'translateY(40px)';
+    }
+    
+    // 创建炫酷的入场动画
+    createElegantIntro();
+    
     const rows = document.querySelectorAll('#data-table tr');
     rows.forEach(row => {
         const cells = row.querySelectorAll('td');
@@ -486,32 +916,53 @@ document.addEventListener('DOMContentLoaded', function() {
     // 添加复制按钮
     addCopyButtons();
     
-    // 为标题添加粒子聚合动画
-    const h1 = document.querySelector('h1');
-    if (h1) {
-        const text = h1.textContent;
-        h1.setAttribute('data-text', text);
+    // 监听入场动画完成事件
+    document.addEventListener('introAnimationComplete', () => {
+        console.log('入场动画完成，显示表格');
         
-        // 隐藏原始标题等待粒子动画
-        h1.style.opacity = '0';
+        // 标题动画
+        const h1 = document.querySelector('h1');
+        if (h1) {
+            h1.classList.add('active');
+        }
         
-        // 创建粒子容器
-        const particleContainer = document.createElement('div');
-        particleContainer.className = 'particle-container';
-        particleContainer.style.position = 'absolute';
-        particleContainer.style.top = '0';
-        particleContainer.style.left = '0';
-        particleContainer.style.width = '100%';
-        particleContainer.style.height = '100%';
-        particleContainer.style.pointerEvents = 'none';
-        particleContainer.style.zIndex = '1000';
-        document.querySelector('.container').appendChild(particleContainer);
-        
-        // 创建粒子动画
+        // 延迟一小段时间后显示表格
         setTimeout(() => {
-            createTitleParticlesAnimation(h1, particleContainer);
-        }, 300); // 略微延迟确保页面已加载
-    }
+            if (tableContainer) {
+                // 手动触发表格动画
+                tableContainer.animate([
+                    { opacity: 0, transform: 'translateY(30px)' },
+                    { opacity: 1, transform: 'translateY(0)' }
+                ], {
+                    duration: 1200,
+                    easing: 'cubic-bezier(0.2, 0.9, 0.3, 1.1)',
+                    fill: 'forwards'
+                });
+            }
+            
+            // 添加表格行动画
+            const tableRows = document.querySelectorAll('#data-table tr');
+            tableRows.forEach((row, index) => {
+                if (index > 0) { // 跳过表头
+                    row.style.animation = 'none'; // 先移除原来的动画
+                    setTimeout(() => {
+                        row.animate([
+                            { opacity: 0, transform: 'translateY(15px)' },
+                            { opacity: 1, transform: 'translateY(0)' }
+                        ], {
+                            duration: 500,
+                            delay: index * 80,
+                            easing: 'ease',
+                            fill: 'forwards'
+                        });
+                    }, 300);
+                }
+            });
+        }, 600);
+        
+        // 添加微妙的浮动动画
+        setTimeout(addSubtleFloatToElements, 1200);
+    });
 
     initCursorEffect();
     initParticleEffect();
@@ -549,8 +1000,8 @@ function copyToClipboard(text, btn) {
 
 // 添加复制按钮到验证码单元格
 function addCopyButtons() {
-    const rows = document.querySelectorAll('#data-table tr');
-    rows.forEach(row => {
+    let tableRows = document.querySelectorAll('#data-table tr');
+    tableRows.forEach(row => {
         const cells = row.querySelectorAll('td');
         if (cells.length > 0) {
             const rowKey = Array.from(cells).map(cell => cell.textContent.trim()).join('|');
@@ -573,6 +1024,13 @@ function addCopyButtons() {
                     `;
                 }
             });
+        }
+    });
+
+    // 添加表格行动画 - 使用相同的tableRows变量而不是重新声明
+    tableRows.forEach((row, index) => {
+        if (index > 0) { // 跳过表头
+            row.style.animationDelay = `${2.5 + index * 0.08}s`;
         }
     });
 }
@@ -716,152 +1174,226 @@ function initParticleEffect() {
     });
 }
 
-// 优化标题粒子动画函数
-function createTitleParticlesAnimation(titleElement, container) {
-    // 针对不同设备优化参数
-    const isMobile = window.innerWidth <= 768;
-    const particleCount = isMobile ? 800 : 400; // 在桌面端减少粒子数量
-    const duration = 2000; // 进一步缩短动画时间
-    const particles = [];
+// 创建优雅的入场动画
+function createElegantIntro() {
+    // 创建入场动画容器
+    const introContainer = document.createElement('div');
+    introContainer.className = 'epic-intro';
+    document.body.appendChild(introContainer);
     
-    const rect = titleElement.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
+    // 创建3D视觉容器
+    const perspective = document.createElement('div');
+    perspective.className = 'intro-perspective';
+    introContainer.appendChild(perspective);
     
-    // 增加网格大小，减少粒子密度
-    const gridSize = isMobile ? 8 : 12;
-    const cols = Math.floor(width / gridSize);
-    const rows = Math.floor(height / gridSize);
+    // 创建网格背景
+    createGridBackground(perspective);
     
-    // 创建离屏容器以减少DOM操作
-    const fragment = document.createDocumentFragment();
+    // 创建粒子系统
+    createParticleSystem(perspective);
     
-    // 优化粒子创建
-    for (let i = 0; i < particleCount; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'title-particle';
-        
-        const col = i % cols;
-        const row = Math.floor((i / cols) % rows);
-        const targetX = rect.left + (col * gridSize) + (Math.random() * gridSize);
-        const targetY = rect.top + (row * gridSize) + (Math.random() * gridSize);
-        
-        // 优化起始位置分布
-        const angle = (i / particleCount) * Math.PI * 2 + Math.random() * 0.5;
-        const distance = Math.random() * 200 + 100; // 减小起始距离范围
-        
-        const startX = rect.left + width/2 + Math.cos(angle) * distance;
-        const startY = rect.top + height/2 + Math.sin(angle) * distance;
-        
-        // 优化粒子样式，减少阴影效果
-        particle.style.cssText = `
-            position: fixed;
-            width: ${Math.random() * 1.5 + 1}px;
-            height: ${Math.random() * 1.5 + 1}px;
-            background: var(--primary-color);
-            box-shadow: 0 0 ${Math.random() * 2 + 1}px var(--primary-color);
-            left: ${startX}px;
-            top: ${startY}px;
-            opacity: 0;
-            border-radius: 50%;
-            will-change: transform, opacity;
-            transform-origin: center;
-            pointer-events: none;
-        `;
-        
-        fragment.appendChild(particle);
-        
-        particles.push({
-            element: particle,
-            startX,
-            startY,
-            targetX,
-            targetY,
-            delay: Math.random() * 300, // 减少延迟时间
-            size: Math.random()
-        });
-    }
+    // 创建闪光效果
+    createGlowEffects(perspective);
     
-    // 一次性添加所有粒子
-    document.body.appendChild(fragment);
+    // 创建标题动画
+    createTextEffect(perspective);
     
-    const startTime = performance.now();
-    let rafId;
-    
-    function animate() {
-        const now = performance.now();
-        const elapsed = now - startTime;
-        const progress = Math.min(1, elapsed / duration);
+    // 执行整体序列动画
+    setTimeout(() => {
+        // 开始网格动画
+        document.querySelector('.grid-container').classList.add('animate');
         
-        // 使用transform3d触发GPU加速
-        particles.forEach((p, i) => {
-            if (elapsed < p.delay) return;
-            
-            const particleProgress = Math.min(1, (elapsed - p.delay) / (duration - p.delay));
-            const ease = easeOutQuart(particleProgress); // 使用性能更好的缓动函数
-            
-            const x = p.startX + (p.targetX - p.startX) * ease;
-            const y = p.startY + (p.targetY - p.startY) * ease;
-            
-            // 减少波动效果
-            const wobble = Math.sin(elapsed * 0.006 + i) * (1 - ease) * 1;
-            
-            p.element.style.transform = `translate3d(${x - p.startX}px, ${y - p.startY + wobble}px, 0)`;
-            p.element.style.opacity = particleProgress * (0.4 + p.size * 0.6);
-        });
+        // 淡入粒子
+        setTimeout(() => {
+            document.querySelector('.particles-container').classList.add('visible');
+        }, 300);
         
-        if (progress < 1) {
-            rafId = requestAnimationFrame(animate);
-        } else {
-            cleanupAnimation();
-        }
-    }
-    
-    // 优化清理动画
-    function cleanupAnimation() {
-        cancelAnimationFrame(rafId);
-        titleElement.style.opacity = '0';
-        titleElement.classList.add('active');
+        // 显示主标题
+        setTimeout(() => {
+            const titleElements = document.querySelectorAll('.letter-3d');
+            titleElements.forEach((el, i) => {
+                setTimeout(() => {
+                    el.classList.add('visible');
+                }, i * 80);
+            });
+        }, 800);
         
-        // 使用更大的批次size，减少setTimeout调用次数
-        const batchSize = 40;
-        const batchDelay = 8;
+        // 显示光效
+        setTimeout(() => {
+            document.querySelectorAll('.glow-effect').forEach(glow => {
+                glow.classList.add('visible');
+            });
+        }, 1500);
         
-        for (let i = 0; i < particles.length; i += batchSize) {
-            const batch = particles.slice(i, i + batchSize);
+        // 结束动画 - 延长时间
+        setTimeout(() => {
+            // 旋转视角并淡出
+            perspective.classList.add('rotate-out');
             
             setTimeout(() => {
-                batch.forEach(p => {
-                    const randomAngle = Math.random() * Math.PI * 2;
-                    const randomDistance = Math.random() * 30 + 20; // 减小消失距离
-                    const dx = Math.cos(randomAngle) * randomDistance;
-                    const dy = Math.sin(randomAngle) * randomDistance;
-                    
-                    p.element.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-                    p.element.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(0)`;
-                    p.element.style.opacity = '0';
-                });
+                // 淡出整个容器
+                introContainer.classList.add('fade-out');
                 
-                // 批量移除元素
+                // 移除动画元素
                 setTimeout(() => {
-                    batch.forEach(p => p.element.remove());
-                }, 300);
-            }, i / batchSize * batchDelay);
-        }
+                    introContainer.remove();
+                    
+                    // 添加新代码: 触发一个自定义事件通知入场动画已完成
+                    const introCompleteEvent = new CustomEvent('introAnimationComplete');
+                    document.dispatchEvent(introCompleteEvent);
+                }, 1000);
+            }, 1000);
+        }, 3800);
+    }, 100);
+}
+
+// 创建3D网格背景
+function createGridBackground(container) {
+    const gridContainer = document.createElement('div');
+    gridContainer.className = 'grid-container';
+    container.appendChild(gridContainer);
+    
+    // 创建网格线
+    const gridSize = 12;
+    const gridGap = 40;
+    
+    // 创建水平线
+    for (let i = 0; i <= gridSize; i++) {
+        const line = document.createElement('div');
+        line.className = 'grid-line horizontal';
+        line.style.top = `${i * gridGap}px`;
+        line.style.animationDelay = `${i * 0.05}s`;
+        gridContainer.appendChild(line);
+    }
+    
+    // 创建垂直线
+    for (let i = 0; i <= gridSize; i++) {
+        const line = document.createElement('div');
+        line.className = 'grid-line vertical';
+        line.style.left = `${i * gridGap}px`;
+        line.style.animationDelay = `${i * 0.05}s`;
+        gridContainer.appendChild(line);
+    }
+}
+
+// 创建粒子系统
+function createParticleSystem(container) {
+    const particlesContainer = document.createElement('div');
+    particlesContainer.className = 'particles-container';
+    container.appendChild(particlesContainer);
+    
+    // 创建多个粒子
+    const particleCount = 100;
+    
+    for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'intro-particle';
         
-        // 更快显示标题
-        setTimeout(() => {
-            titleElement.style.opacity = '1';
-            titleElement.style.transform = 'scale(1)';
-        }, 150);
+        // 随机位置和大小
+        const size = Math.random() * 6 + 2;
+        const x = Math.random() * 100;
+        const y = Math.random() * 100;
+        const z = Math.random() * 300 - 150;
+        
+        // 随机颜色
+        const hue = Math.random() > 0.5 ? 190 : 280; // 主蓝色或紫色
+        const sat = 80 + Math.random() * 20;
+        const light = 40 + Math.random() * 30;
+        
+        particle.style.cssText = `
+            width: ${size}px;
+            height: ${size}px;
+            left: ${x}%;
+            top: ${y}%;
+            transform: translateZ(${z}px);
+            background: hsla(${hue}, ${sat}%, ${light}%, 0.8);
+            animation-duration: ${Math.random() * 5 + 3}s;
+            animation-delay: ${Math.random() * 2}s;
+        `;
+        
+        particlesContainer.appendChild(particle);
+    }
+}
+
+// 创建炫光效果
+function createGlowEffects(container) {
+    // 创建主光晕
+    const mainGlow = document.createElement('div');
+    mainGlow.className = 'glow-effect main-glow';
+    container.appendChild(mainGlow);
+    
+    // 创建光线
+    const rayCount = 8;
+    for (let i = 0; i < rayCount; i++) {
+        const ray = document.createElement('div');
+        ray.className = 'glow-effect light-ray';
+        ray.style.transform = `rotate(${(i / rayCount) * 360}deg)`;
+        container.appendChild(ray);
     }
     
-    // 使用性能更好的缓动函数
-    function easeOutQuart(t) {
-        return 1 - (--t) * t * t * t;
+    // 创建光斑
+    const spotCount = 6;
+    for (let i = 0; i < spotCount; i++) {
+        const spot = document.createElement('div');
+        spot.className = 'glow-effect light-spot';
+        spot.style.cssText = `
+            left: ${Math.random() * 80 + 10}%;
+            top: ${Math.random() * 80 + 10}%;
+            animation-delay: ${Math.random() * 2}s;
+        `;
+        container.appendChild(spot);
+    }
+}
+
+// 创建3D文本效果
+function createTextEffect(container) {
+    const textContainer = document.createElement('div');
+    textContainer.className = 'text-3d-container';
+    container.appendChild(textContainer);
+    
+    const text = "阿奎GPT";
+    
+    // 为每个字母创建3D效果
+    [...text].forEach((letter, index) => {
+        const letterElement = document.createElement('div');
+        letterElement.className = 'letter-3d';
+        letterElement.textContent = letter;
+        letterElement.style.animationDelay = `${index * 0.1}s`;
+        textContainer.appendChild(letterElement);
+    });
+}
+
+// 添加微妙的浮动动画到内容元素
+function addSubtleFloatToElements() {
+    // 为标题添加轻微悬浮效果
+    const h1 = document.querySelector('h1');
+    if (h1) {
+        h1.animate([
+            { transform: 'translateY(0)' },
+            { transform: 'translateY(-5px)' },
+            { transform: 'translateY(0)' }
+        ], {
+            duration: 6000,
+            iterations: Infinity,
+            easing: 'ease-in-out'
+        });
     }
     
-    animate();
+    // 为表格容器添加轻微呼吸效果
+    setTimeout(() => {
+        const tableContainer = document.querySelector('.table-container');
+        if (tableContainer) {
+            tableContainer.animate([
+                { boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)' },
+                { boxShadow: '0 12px 40px rgba(0, 212, 255, 0.15)' },
+                { boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)' }
+            ], {
+                duration: 8000,
+                iterations: Infinity,
+                easing: 'ease-in-out'
+            });
+        }
+    }, 3000);
 }
 </script>
 </body>
