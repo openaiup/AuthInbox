@@ -14,6 +14,7 @@
             --surface-color: rgba(255, 255, 255, 0.05);
             --text-color: #ffffff;
             --border-color: rgba(255, 255, 255, 0.1);
+            --vh: 1vh; /* 用于移动设备视口高度修复 */
         }
 
         body {
@@ -34,15 +35,21 @@
             scrollbar-width: none;     /* Firefox */
         }
 
+        @supports (-webkit-touch-callout: none) {
+            body {
+                min-height: -webkit-fill-available;
+            }
+        }
+
         @keyframes fadeIn {
             from { 
                 opacity: 0; 
-                transform: translateY(30px) scale(0.98);
+                -webkit-transform: translateY(30px) scale(0.98);
                 filter: blur(10px);
             }
             to { 
                 opacity: 1; 
-                transform: translateY(0) scale(1);
+                -webkit-transform: translateY(0) scale(1);
                 filter: blur(0);
             }
         }
@@ -259,17 +266,10 @@
             opacity: 1;
             transform: scale(1);
             position: relative;
-            background: linear-gradient(
-                120deg,
-                var(--primary-color) 0%,
-                var(--secondary-color) 45%,
-                var(--primary-color) 55%,
-                var(--secondary-color) 100%
-            );
-            background-size: 400% auto;
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
+            background-image: -webkit-linear-gradient(120deg, var(--primary-color) 0%, var(--secondary-color) 45%, var(--primary-color) 55%, var(--secondary-color) 100%);
+            background-image: -moz-linear-gradient(120deg, var(--primary-color) 0%, var(--secondary-color) 45%, var(--primary-color) 55%, var(--secondary-color) 100%);
+            background-image: -o-linear-gradient(120deg, var(--primary-color) 0%, var(--secondary-color) 45%, var(--primary-color) 55%, var(--secondary-color) 100%);
+            background-image: linear-gradient(120deg, var(--primary-color) 0%, var(--secondary-color) 45%, var(--primary-color) 55%, var(--secondary-color) 100%);
             animation: gradientText 10s linear infinite;
             padding: 15px 30px;
             overflow: hidden;
@@ -1198,6 +1198,43 @@
             0% { width: 0; }
             100% { width: 100%; }
         }
+
+        /* 确保背景剪裁和滤镜有良好的兼容性 */
+        .text-with-gradient {
+            background-clip: text;
+            -webkit-background-clip: text;
+            text-fill-color: transparent;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .with-backdrop-filter {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        /* 添加到现有样式中，修复Safari中的滚动问题 */
+        @supports (-webkit-overflow-scrolling: touch) {
+            body {
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            /* 修复iOS Safari的100vh问题 */
+            .table-container {
+                max-height: 80vh; /* 避免在iOS Safari上内容被截断 */
+                max-height: calc(var(--vh, 1vh) * 80);
+            }
+        }
+
+        /* 修复Firefox中的一些渲染问题 */
+        @-moz-document url-prefix() {
+            .background-grid {
+                background-attachment: fixed; /* 提高Firefox中的滚动性能 */
+            }
+            
+            .background-effects {
+                z-index: -1; /* 确保在Firefox中背景效果不会干扰交互 */
+            }
+        }
     </style>
 </head>
 <body>
@@ -1223,6 +1260,77 @@
 <script>
 // 存储上一次的所有内容
 let previousRows = new Map();
+
+// 替换现有的定时刷新函数
+let refreshInterval;
+
+function startAutoRefresh() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
+    
+    refreshInterval = setInterval(function() {
+        refreshTableData();
+    }, 3000);
+}
+
+function refreshTableData() {
+    // 获取当前页面的URL
+    const currentUrl = window.location.href;
+    
+    // 创建一个新的标记来跟踪请求
+    const requestId = Date.now();
+    
+    // 使用fetch获取新数据
+    fetch(currentUrl + (currentUrl.includes('?') ? '&' : '?') + '_=' + requestId)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('网络响应不佳');
+            }
+            return response.text();
+        })
+        .then(html => {
+            try {
+                // 创建一个临时的div来解析HTML
+                const temp = document.createElement('div');
+                temp.innerHTML = html;
+                
+                // 获取新的表格内容
+                const newTableElem = temp.querySelector('#data-table');
+                
+                if (newTableElem) {
+                    const newTable = newTableElem.innerHTML;
+                    
+                    // 更新当前表格内容
+                    document.getElementById('data-table').innerHTML = newTable;
+                    
+                    // 重新添加复制按钮
+                    addCopyButtons();
+                }
+            } catch (parseError) {
+                console.error('解析HTML失败:', parseError);
+            }
+        })
+        .catch(error => {
+            console.error('刷新失败:', error);
+            // 出错时减少刷新频率，避免重复失败
+            clearInterval(refreshInterval);
+            setTimeout(startAutoRefresh, 10000); // 10秒后重试
+        });
+}
+
+// 添加到DOMContentLoaded事件中，计算移动设备的真实视口高度
+function setRealVhValue() {
+    // 首次设置
+    let vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+    
+    // 监听窗口尺寸变化
+    window.addEventListener('resize', () => {
+        vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+    });
+}
 
 // 修改初始化函数，统一管理入场动画
 document.addEventListener('DOMContentLoaded', function() {
@@ -1281,11 +1389,53 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 初始化背景效果
     initBackgroundEffects();
+    
+    // 添加性能检测
+    checkPerformance();
+    
+    // 启动自动刷新
+    startAutoRefresh();
+    
+    // 页面可见性变化时管理刷新
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            // 页面不可见时停止刷新
+            clearInterval(refreshInterval);
+        } else {
+            // 页面再次可见时恢复刷新并立即刷新一次
+            refreshTableData();
+            startAutoRefresh();
+        }
+    });
+    
+    // 设置实际视口高度
+    setRealVhValue();
 });
 
 // 复制功能
 function copyToClipboard(text, btn) {
-    // 创建临时输入框
+    // 首先尝试使用现代Clipboard API
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            // 更新按钮文字
+            const originalText = btn.textContent;
+            btn.textContent = '已复制';
+            setTimeout(() => {
+                btn.textContent = originalText;
+            }, 1000);
+        }).catch(err => {
+            console.error('使用Clipboard API复制失败:', err);
+            // 如果失败，回退到旧方法
+            fallbackCopy(text, btn);
+        });
+    } else {
+        // 回退到旧方法
+        fallbackCopy(text, btn);
+    }
+}
+
+// 添加回退复制方法
+function fallbackCopy(text, btn) {
     const input = document.createElement('input');
     input.style.position = 'fixed';
     input.style.opacity = '0';
@@ -1298,15 +1448,25 @@ function copyToClipboard(text, btn) {
     
     try {
         // 执行复制
-        document.execCommand('copy');
-        // 更新按钮文字
-        const originalText = btn.textContent;
-        btn.textContent = '已复制';
-        setTimeout(() => {
-            btn.textContent = originalText;
-        }, 1000);
+        const successful = document.execCommand('copy');
+        if (successful) {
+            const originalText = btn.textContent;
+            btn.textContent = '已复制';
+            setTimeout(() => {
+                btn.textContent = originalText;
+            }, 1000);
+        } else {
+            btn.textContent = '复制失败';
+            setTimeout(() => {
+                btn.textContent = '复制';
+            }, 1000);
+        }
     } catch (err) {
         console.error('复制失败:', err);
+        btn.textContent = '复制失败';
+        setTimeout(() => {
+            btn.textContent = '复制';
+        }, 1000);
     }
     
     // 移除临时输入框
@@ -1343,37 +1503,23 @@ function addCopyButtons() {
     });
 }
 
-// 每3秒自动获取新数据
-setInterval(function() {
-    // 获取当前页面的URL
-    const currentUrl = window.location.href;
-    
-    // 使用fetch获取新数据
-    fetch(currentUrl)
-        .then(response => response.text())
-        .then(html => {
-            // 创建一个临时的div来解析HTML
-            const temp = document.createElement('div');
-            temp.innerHTML = html;
-            
-            // 获取新的表格内容
-            const newTable = temp.querySelector('#data-table').innerHTML;
-            
-            // 更新当前表格内容
-            document.getElementById('data-table').innerHTML = newTable;
-            
-            // 重新添加复制按钮
-            addCopyButtons();
-        })
-        .catch(error => console.error('刷新失败:', error));
-}, 3000);
-
 // 鼠标跟随效果
 function initCursorEffect() {
     const cursorDot = document.querySelector('.cursor-dot');
     let isMouseInPage = false;
     let mouseX = -100, mouseY = -100;
-
+    let isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    // 在移动设备上禁用鼠标效果
+    if (isMobile) {
+        cursorDot.style.display = 'none';
+        const outlines = document.querySelectorAll('.cursor-outline');
+        outlines.forEach(outline => {
+            outline.style.display = 'none';
+        });
+        return;
+    }
+    
     // 监听鼠标进入页面
     document.addEventListener('mouseenter', () => {
         isMouseInPage = true;
@@ -1878,6 +2024,54 @@ function createFloatingLights(container) {
         light.style.setProperty('--ty3', `${ty3}%`);
         
         container.appendChild(light);
+    }
+}
+
+// 添加动画性能检测和适配
+function checkPerformance() {
+    // 检测设备性能
+    let isLowEndDevice = false;
+    
+    // 检查是否支持deviceMemory和hardwareConcurrency API
+    if (navigator.deviceMemory !== undefined || navigator.hardwareConcurrency !== undefined) {
+        isLowEndDevice = (navigator.deviceMemory !== undefined && navigator.deviceMemory < 4) || 
+                         (navigator.hardwareConcurrency !== undefined && navigator.hardwareConcurrency < 4);
+    } else {
+        // 如果不支持这些API，检测是否为移动设备
+        isLowEndDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    }
+    
+    // 检测用户是否设置了减少动画
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    
+    if (isLowEndDevice || prefersReducedMotion) {
+        // 减少动画效果
+        const style = document.createElement('style');
+        style.textContent = `
+            * {
+                animation-duration: 0.001s !important;
+                transition-duration: 0.001s !important;
+            }
+            
+            /* 禁用复杂背景效果 */
+            .background-effects {
+                opacity: 0.3 !important;
+            }
+            
+            /* 简化入场动画 */
+            .intro-animation-container {
+                display: none !important;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // 直接显示内容，跳过入场动画
+        const tableContainer = document.querySelector('.table-container');
+        if (tableContainer) {
+            tableContainer.style.opacity = '1';
+            tableContainer.style.transform = 'translateY(0)';
+            tableContainer.style.filter = 'blur(0)';
+        }
     }
 }
 </script>
