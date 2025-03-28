@@ -854,16 +854,28 @@
 <script>
 // 存储上一次的所有内容
 let previousRows = new Map();
+// 缓存常用DOM元素
+let domCache = {};
+
+// 初始化DOM缓存函数
+function initDomCache() {
+    domCache.tableContainer = document.querySelector('.table-container');
+    domCache.dataTable = document.getElementById('data-table');
+    domCache.heading = document.querySelector('h1');
+    domCache.cursorDot = document.querySelector('.cursor-dot');
+}
 
 // 初始化时记录当前所有内容
 document.addEventListener('DOMContentLoaded', function() {
+    // 初始化DOM缓存
+    initDomCache();
+    
     // 阻止表格显示，直到入场动画完成
-    const tableContainer = document.querySelector('.table-container');
-    if (tableContainer) {
+    if (domCache.tableContainer) {
         // 先移除自动动画
-        tableContainer.style.animation = 'none';
-        tableContainer.style.opacity = '0';
-        tableContainer.style.transform = 'translateY(40px)';
+        domCache.tableContainer.style.animation = 'none';
+        domCache.tableContainer.style.opacity = '0';
+        domCache.tableContainer.style.transform = 'translateY(40px)';
     }
     
     // 隐藏表格行
@@ -889,11 +901,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 设置备份显示计时器（确保动画失败时仍能显示内容）
     setTimeout(function() {
-        if (document.querySelector('.epic-intro')) {
+        const introElement = document.querySelector('.epic-intro');
+        if (introElement) {
             // 如果5秒后入场动画容器仍存在，强制显示内容
-            document.querySelectorAll('.epic-intro').forEach(el => el.remove());
+            introElement.remove();
             showTable();
-            document.querySelector('h1').classList.add('active');
+            if (domCache.heading) {
+                domCache.heading.classList.add('active');
+            }
         }
     }, 8000);
 
@@ -901,55 +916,65 @@ document.addEventListener('DOMContentLoaded', function() {
     initParticleEffect();
 
     // 添加保险机制，确保表格内容总是可见
-    setInterval(function() {
+    const visibilityTimer = setTimeout(function ensureVisibility() {
         const tableRows = document.querySelectorAll('#data-table tr');
-        const tableContainer = document.querySelector('.table-container');
         
-        if (tableContainer) {
-            tableContainer.style.opacity = '1';
-            tableContainer.style.transform = 'translateY(0)';
+        if (domCache.tableContainer) {
+            domCache.tableContainer.style.opacity = '1';
+            domCache.tableContainer.style.transform = 'translateY(0)';
+            domCache.tableContainer.classList.add('force-visible');
         }
         
         tableRows.forEach(row => {
             row.style.opacity = '1';
             row.style.transform = 'translateY(0)';
-        });
-
-        document.querySelector('.table-container')?.classList.add('force-visible');
-        document.querySelectorAll('#data-table tr').forEach(row => {
             row.classList.add('force-visible');
         });
+        
+        // 只运行一次
+        clearTimeout(visibilityTimer);
     }, 5000);
 });
 
 // 复制功能
 function copyToClipboard(text, btn) {
-    // 创建临时输入框
-    const input = document.createElement('input');
-    input.style.position = 'fixed';
-    input.style.opacity = '0';
-    input.value = text;
-    document.body.appendChild(input);
-    
-    // 选择文本
-    input.select();
-    input.setSelectionRange(0, 99999);
-    
-    try {
-        // 执行复制
-        document.execCommand('copy');
-        // 更新按钮文字
-        const originalText = btn.textContent;
-        btn.textContent = '已复制';
-        setTimeout(() => {
-            btn.textContent = originalText;
-        }, 1000);
-    } catch (err) {
-        console.error('复制失败:', err);
+    if (!navigator.clipboard) {
+        // 旧方法 - 创建临时输入框
+        const input = document.createElement('input');
+        input.style.position = 'fixed';
+        input.style.opacity = '0';
+        input.value = text;
+        document.body.appendChild(input);
+        
+        // 选择文本
+        input.select();
+        input.setSelectionRange(0, 99999);
+        
+        try {
+            // 执行复制
+            const success = document.execCommand('copy');
+            if (!success) {
+                console.error('复制失败');
+            }
+        } catch (err) {
+            console.error('复制失败:', err);
+        }
+        
+        // 移除临时输入框
+        document.body.removeChild(input);
+    } else {
+        // 现代方法 - 使用 Clipboard API
+        navigator.clipboard.writeText(text).catch(err => {
+            console.error('复制失败:', err);
+        });
     }
     
-    // 移除临时输入框
-    document.body.removeChild(input);
+    // 更新按钮文字
+    const originalText = btn.textContent;
+    btn.textContent = '已复制';
+    setTimeout(() => {
+        btn.textContent = originalText;
+    }, 1000);
 }
 
 // 添加复制按钮到验证码单元格
@@ -963,20 +988,30 @@ function addCopyButtons() {
             
             cells.forEach(cell => {
                 const content = cell.textContent.trim();
-                if (content.match(/^\d+$/)) {  // 如果是验证码
-                    cell.innerHTML = `
-                        <div class="code-cell">
-                            <span class="${isNewRow ? 'new-code' : ''}">${content}</span>
-                            <button class="copy-btn" onclick="copyToClipboard('${content}', this)">复制</button>
-                        </div>
-                    `;
-                } else {  // 其他文本内容
-                    cell.innerHTML = `
-                        <div class="code-cell">
-                            <span class="${isNewRow ? 'new-code' : ''}">${content}</span>
-                        </div>
-                    `;
+                // 使用安全的方式创建HTML
+                const cellContent = document.createElement('div');
+                cellContent.className = 'code-cell';
+                
+                const contentSpan = document.createElement('span');
+                if (isNewRow) {
+                    contentSpan.className = 'new-code';
                 }
+                contentSpan.textContent = content;
+                cellContent.appendChild(contentSpan);
+                
+                if (content.match(/^\d+$/)) {  // 如果是验证码
+                    const copyBtn = document.createElement('button');
+                    copyBtn.className = 'copy-btn';
+                    copyBtn.textContent = '复制';
+                    copyBtn.addEventListener('click', function() {
+                        copyToClipboard(content, this);
+                    });
+                    cellContent.appendChild(copyBtn);
+                }
+                
+                // 清除现有内容并添加新内容
+                cell.textContent = '';
+                cell.appendChild(cellContent);
             });
         }
     });
@@ -999,73 +1034,168 @@ function addCopyButtons() {
     });
 }
 
-// 每3秒自动获取新数据
-setInterval(function() {
-    console.log('当前表格行数:', document.querySelectorAll('#data-table tr').length);
-    console.log('表格容器可见性:', document.querySelector('.table-container').style.opacity);
+// 数据刷新变量
+let isRefreshing = false;
+let refreshInterval = null;
+let failedAttempts = 0;
+const MAX_FAILED_ATTEMPTS = 3;
+
+// 启动数据刷新 - 使用自适应间隔
+function startDataRefresh(initialInterval = 3000) {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
     
-    // 获取当前页面的URL
-    const currentUrl = window.location.href;
+    const refreshData = function() {
+        if (isRefreshing) return;
+        isRefreshing = true;
+        
+        console.log('当前表格行数:', document.querySelectorAll('#data-table tr').length);
+        if (domCache.tableContainer) {
+            console.log('表格容器可见性:', domCache.tableContainer.style.opacity);
+        }
+        
+        // 获取当前页面的URL
+        const currentUrl = window.location.href;
+        
+        // 添加时间戳防止缓存
+        const urlWithTimestamp = currentUrl + (currentUrl.includes('?') ? '&' : '?') + 
+                                'timestamp=' + new Date().getTime();
+        
+        // 使用fetch获取新数据
+        fetch(urlWithTimestamp)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.text();
+            })
+            .then(html => {
+                // 创建一个临时的div来解析HTML
+                const temp = document.createElement('div');
+                temp.innerHTML = html;
+                
+                // 获取新的表格内容
+                const newTableEl = temp.querySelector('#data-table');
+                
+                // 只有在找到表格且表格有内容时才更新
+                if (newTableEl && newTableEl.rows.length > 0) {
+                    const currentTable = domCache.dataTable;
+                    if (currentTable) {
+                        // 创建文档片段以高效地插入所有行
+                        const fragment = document.createDocumentFragment();
+                        Array.from(newTableEl.rows).forEach(row => {
+                            fragment.appendChild(row.cloneNode(true));
+                        });
+                        
+                        // 清空并重新填充表格
+                        while (currentTable.firstChild) {
+                            currentTable.removeChild(currentTable.firstChild);
+                        }
+                        currentTable.appendChild(fragment);
+                        
+                        // 重新添加复制按钮并确保表格行可见
+                        addCopyButtons();
+                        
+                        // 确保表格行可见
+                        document.querySelectorAll('#data-table tr').forEach(row => {
+                            row.style.opacity = '1';
+                            row.style.transform = 'translateY(0)';
+                        });
+                    }
+                    
+                    // 重置失败计数
+                    failedAttempts = 0;
+                } else {
+                    console.log('获取到的新数据不完整，跳过更新');
+                    handleRefreshError(new Error('Incomplete data'));
+                }
+                
+                isRefreshing = false;
+            })
+            .catch(error => {
+                console.error('刷新失败:', error);
+                handleRefreshError(error);
+                isRefreshing = false;
+            });
+    };
     
-    // 使用fetch获取新数据
-    fetch(currentUrl)
-        .then(response => response.text())
-        .then(html => {
-            // 创建一个临时的div来解析HTML
-            const temp = document.createElement('div');
-            temp.innerHTML = html;
-            
-            // 获取新的表格内容
-            const newTableEl = temp.querySelector('#data-table');
-            
-            // 只有在找到表格且表格有内容时才更新
-            if (newTableEl && newTableEl.rows.length > 0) {
-                const newTable = newTableEl.innerHTML;
-                document.getElementById('data-table').innerHTML = newTable;
-                
-                // 重新添加复制按钮并确保表格行可见
-                addCopyButtons();
-                
-                // 确保表格行可见
-                document.querySelectorAll('#data-table tr').forEach(row => {
-                    row.style.opacity = '1';
-                    row.style.transform = 'translateY(0)';
-                });
-            } else {
-                console.log('获取到的新数据不完整，跳过更新');
-            }
-        })
-        .catch(error => console.error('刷新失败:', error));
-}, 3000);
+    refreshInterval = setInterval(refreshData, initialInterval);
+    
+    function handleRefreshError(error) {
+        failedAttempts++;
+        if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
+            console.warn(`连续 ${MAX_FAILED_ATTEMPTS} 次刷新失败，降低刷新频率`);
+            // 增加刷新间隔
+            clearInterval(refreshInterval);
+            refreshInterval = setInterval(refreshData, initialInterval * 2);
+            failedAttempts = 0;
+        }
+    }
+}
+
+// 启动数据刷新
+startDataRefresh(3000);
 
 // 鼠标跟随效果
 function initCursorEffect() {
-    const cursorDot = document.querySelector('.cursor-dot');
+    if (!domCache.cursorDot) {
+        domCache.cursorDot = document.querySelector('.cursor-dot');
+    }
+    
     let isMouseInPage = false;
-    let mouseX = -100, mouseY = -100;
+    let lastMouseX = -100, lastMouseY = -100;
+    let animationFrameId = null;
 
     // 监听鼠标进入页面
     document.addEventListener('mouseenter', () => {
         isMouseInPage = true;
-        cursorDot.style.opacity = '1';
+        if (domCache.cursorDot) {
+            domCache.cursorDot.style.opacity = '1';
+        }
     });
 
     // 监听鼠标离开页面
     document.addEventListener('mouseleave', () => {
         isMouseInPage = false;
-        cursorDot.style.opacity = '0';
-        cursorDot.style.transform = 'translate(-100vw, -100vh)';
+        if (domCache.cursorDot) {
+            domCache.cursorDot.style.opacity = '0';
+            domCache.cursorDot.style.transform = 'translate(-100vw, -100vh)';
+        }
+        // 取消动画帧
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
     });
 
+    // 使用防抖动处理鼠标移动
+    let lastMoveTime = 0;
     window.addEventListener('mousemove', (e) => {
-        if (!isMouseInPage) return;
-        mouseX = e.clientX;
-        mouseY = e.clientY;
-        cursorDot.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;
+        const now = performance.now();
+        // 每16ms (约60fps) 处理一次移动
+        if (now - lastMoveTime < 16) return;
+        
+        lastMoveTime = now;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        
+        // 如果没有运行动画帧，启动一个
+        if (!animationFrameId && isMouseInPage && domCache.cursorDot) {
+            animationFrameId = requestAnimationFrame(updateCursor);
+        }
     });
+    
+    // 使用requestAnimationFrame处理光标更新
+    function updateCursor() {
+        if (isMouseInPage && domCache.cursorDot) {
+            domCache.cursorDot.style.transform = `translate(${lastMouseX}px, ${lastMouseY}px) translate(-50%, -50%)`;
+        }
+        animationFrameId = null;
+    }
 }
 
-// 创建粒子效果
+// 创建粒子效果 - 优化版本
 function createParticle(x, y, isMicroParticle = false) {
     const particle = document.createElement('div');
     particle.className = isMicroParticle ? 'micro-particle' : 'particle';
@@ -1113,26 +1243,40 @@ function createParticle(x, y, isMicroParticle = false) {
         particle.style.animation = 'particleAnimation 1.2s ease-out forwards';
     }
     
+    // 使用动画结束事件监听器安全地移除元素
+    particle.addEventListener('animationend', function() {
+        if (particle.parentNode) {
+            particle.parentNode.removeChild(particle);
+        }
+    });
+    
+    // 设置安全的超时备份，确保元素被删除
     setTimeout(() => {
-        document.body.removeChild(particle);
-    }, isMicroParticle ? 1500 : 1300);
+        if (particle.parentNode) {
+            particle.parentNode.removeChild(particle);
+        }
+    }, isMicroParticle ? 2000 : 1500);
 }
 
-// 鼠标移动时创建粒子
+// 鼠标移动时创建粒子 - 性能优化
 function initParticleEffect() {
     let lastParticleTime = 0;
     let lastMicroParticleTime = 0;
+    let isCreatingParticles = false;
+    const particleRateLimit = 20; // 每20ms创建一个主粒子
+    const microParticleRateLimit = 10; // 每10ms创建微粒子
     
-    window.addEventListener('mousemove', (e) => {
+    // 使用节流函数限制粒子创建频率
+    const mouseMoveHandler = function(e) {
         const now = performance.now();
         
         // 创建主粒子
-        if (now - lastParticleTime > 20) { // 每20ms创建一个主粒子
+        if (now - lastParticleTime > particleRateLimit) {
             createParticle(e.clientX, e.clientY);
             lastParticleTime = now;
             
             // 随机创建额外的主粒子
-            if (Math.random() < 0.3) {
+            if (Math.random() < 0.2) { // 降低概率以减轻性能负担
                 setTimeout(() => {
                     createParticle(
                         e.clientX + (Math.random() - 0.5) * 20,
@@ -1143,13 +1287,17 @@ function initParticleEffect() {
         }
         
         // 创建微粒子
-        if (now - lastMicroParticleTime > 10) { // 每10ms创建微粒子
-            for (let i = 0; i < 10; i++) { // 每次创建10个微粒子
+        if (now - lastMicroParticleTime > microParticleRateLimit) {
+            const particleCount = Math.min(5, Math.floor(Math.random() * 5) + 3); // 控制粒子数量
+            for (let i = 0; i < particleCount; i++) {
                 createParticle(e.clientX, e.clientY, true);
             }
             lastMicroParticleTime = now;
         }
-    });
+    };
+    
+    // 添加限流的事件监听器
+    window.addEventListener('mousemove', mouseMoveHandler, { passive: true });
 }
 
 // 创建优雅的入场动画
@@ -1179,11 +1327,17 @@ function createElegantIntro() {
     // 执行整体序列动画
     setTimeout(() => {
         // 开始网格动画
-        document.querySelector('.grid-container').classList.add('animate');
+        const gridContainer = document.querySelector('.grid-container');
+        if (gridContainer) {
+            gridContainer.classList.add('animate');
+        }
         
         // 淡入粒子
         setTimeout(() => {
-            document.querySelector('.particles-container').classList.add('visible');
+            const particlesContainer = document.querySelector('.particles-container');
+            if (particlesContainer) {
+                particlesContainer.classList.add('visible');
+            }
         }, 300);
         
         // 显示主标题
@@ -1206,18 +1360,26 @@ function createElegantIntro() {
         // 结束动画 - 延长时间
         setTimeout(() => {
             // 旋转视角并淡出
-            perspective.classList.add('rotate-out');
+            if (perspective) {
+                perspective.classList.add('rotate-out');
+            }
             
             setTimeout(() => {
                 // 淡出整个容器
-                introContainer.classList.add('fade-out');
+                if (introContainer && introContainer.parentNode) {
+                    introContainer.classList.add('fade-out');
+                }
                 
                 // 移除动画元素并确保页面元素显示
                 setTimeout(() => {
-                    introContainer.remove();
+                    if (introContainer && introContainer.parentNode) {
+                        introContainer.remove();
+                    }
                     
                     // 确保标题和表格显示
-                    document.querySelector('h1').classList.add('active');
+                    if (domCache.heading) {
+                        domCache.heading.classList.add('active');
+                    }
                     showTable();
                     
                     // 触发自定义事件
@@ -1239,13 +1401,16 @@ function createGridBackground(container) {
     const gridSize = 12;
     const gridGap = 40;
     
+    // 创建文档片段以优化DOM操作
+    const fragment = document.createDocumentFragment();
+    
     // 创建水平线
     for (let i = 0; i <= gridSize; i++) {
         const line = document.createElement('div');
         line.className = 'grid-line horizontal';
         line.style.top = `${i * gridGap}px`;
         line.style.animationDelay = `${i * 0.05}s`;
-        gridContainer.appendChild(line);
+        fragment.appendChild(line);
     }
     
     // 创建垂直线
@@ -1254,8 +1419,11 @@ function createGridBackground(container) {
         line.className = 'grid-line vertical';
         line.style.left = `${i * gridGap}px`;
         line.style.animationDelay = `${i * 0.05}s`;
-        gridContainer.appendChild(line);
+        fragment.appendChild(line);
     }
+    
+    // 一次性添加所有线条
+    gridContainer.appendChild(fragment);
 }
 
 // 创建粒子系统
@@ -1265,7 +1433,8 @@ function createParticleSystem(container) {
     container.appendChild(particlesContainer);
     
     // 创建多个粒子
-    const particleCount = 100;
+    const particleCount = Math.min(100, window.innerWidth < 768 ? 50 : 100); // 移动设备减少粒子数量
+    const fragment = document.createDocumentFragment();
     
     for (let i = 0; i < particleCount; i++) {
         const particle = document.createElement('div');
@@ -1293,28 +1462,32 @@ function createParticleSystem(container) {
             animation-delay: ${Math.random() * 2}s;
         `;
         
-        particlesContainer.appendChild(particle);
+        fragment.appendChild(particle);
     }
+    
+    particlesContainer.appendChild(fragment);
 }
 
 // 创建炫光效果
 function createGlowEffects(container) {
+    const fragment = document.createDocumentFragment();
+    
     // 创建主光晕
     const mainGlow = document.createElement('div');
     mainGlow.className = 'glow-effect main-glow';
-    container.appendChild(mainGlow);
+    fragment.appendChild(mainGlow);
     
     // 创建光线
-    const rayCount = 8;
+    const rayCount = Math.min(8, window.innerWidth < 768 ? 4 : 8); // 移动设备减少光线数量
     for (let i = 0; i < rayCount; i++) {
         const ray = document.createElement('div');
         ray.className = 'glow-effect light-ray';
         ray.style.transform = `rotate(${(i / rayCount) * 360}deg)`;
-        container.appendChild(ray);
+        fragment.appendChild(ray);
     }
     
     // 创建光斑
-    const spotCount = 6;
+    const spotCount = Math.min(6, window.innerWidth < 768 ? 3 : 6); // 移动设备减少光斑数量
     for (let i = 0; i < spotCount; i++) {
         const spot = document.createElement('div');
         spot.className = 'glow-effect light-spot';
@@ -1323,8 +1496,10 @@ function createGlowEffects(container) {
             top: ${Math.random() * 80 + 10}%;
             animation-delay: ${Math.random() * 2}s;
         `;
-        container.appendChild(spot);
+        fragment.appendChild(spot);
     }
+    
+    container.appendChild(fragment);
 }
 
 // 创建3D文本效果
@@ -1334,6 +1509,7 @@ function createTextEffect(container) {
     container.appendChild(textContainer);
     
     const text = "阿奎GPT";
+    const fragment = document.createDocumentFragment();
     
     // 为每个字母创建3D效果
     [...text].forEach((letter, index) => {
@@ -1341,36 +1517,45 @@ function createTextEffect(container) {
         letterElement.className = 'letter-3d';
         letterElement.textContent = letter;
         letterElement.style.animationDelay = `${index * 0.1}s`;
-        textContainer.appendChild(letterElement);
+        fragment.appendChild(letterElement);
     });
+    
+    textContainer.appendChild(fragment);
 }
 
 // 添加微妙的浮动动画到内容元素
 function addSubtleFloatToElements() {
     // 仅保留表格容器的呼吸效果
     setTimeout(() => {
-        const tableContainer = document.querySelector('.table-container');
-        if (tableContainer) {
-            tableContainer.animate([
-                { boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)' },
-                { boxShadow: '0 12px 40px rgba(0, 212, 255, 0.15)' },
-                { boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)' }
-            ], {
-                duration: 8000,
-                iterations: Infinity,
-                easing: 'ease-in-out'
-            });
+        if (domCache.tableContainer) {
+            try {
+                const animation = domCache.tableContainer.animate([
+                    { boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)' },
+                    { boxShadow: '0 12px 40px rgba(0, 212, 255, 0.15)' },
+                    { boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)' }
+                ], {
+                    duration: 8000,
+                    iterations: Infinity,
+                    easing: 'ease-in-out'
+                });
+                
+                // 检查浏览器是否支持 Web Animations API
+                if (!animation) {
+                    console.log('浏览器不支持 Web Animations API');
+                }
+            } catch (error) {
+                console.error('创建动画失败:', error);
+            }
         }
     }, 3000);
 }
 
 // 添加一个新函数，确保表格显示
 function showTable() {
-    const tableContainer = document.querySelector('.table-container');
-    if (tableContainer) {
+    if (domCache.tableContainer) {
         // 直接设置最终状态，确保表格显示
-        tableContainer.style.opacity = '1';
-        tableContainer.style.transform = 'translateY(0)';
+        domCache.tableContainer.style.opacity = '1';
+        domCache.tableContainer.style.transform = 'translateY(0)';
         
         // 确保所有表格行也可见
         const tableRows = document.querySelectorAll('#data-table tr');
@@ -1391,15 +1576,21 @@ document.addEventListener('introAnimationComplete', () => {
     // 添加表格行的淡入动画效果
     const tableRows = document.querySelectorAll('#data-table tr');
     tableRows.forEach((row, index) => {
-        row.animate([
-            { opacity: 0.5, transform: 'translateY(5px)' },
-            { opacity: 1, transform: 'translateY(0)' }
-        ], {
-            duration: 500,
-            delay: index * 50,
-            easing: 'ease',
-            fill: 'forwards'
-        });
+        try {
+            row.animate([
+                { opacity: 0.5, transform: 'translateY(5px)' },
+                { opacity: 1, transform: 'translateY(0)' }
+            ], {
+                duration: 500,
+                delay: index * 50,
+                easing: 'ease',
+                fill: 'forwards'
+            });
+        } catch (error) {
+            // 如果动画API不可用，直接设置最终状态
+            row.style.opacity = '1';
+            row.style.transform = 'translateY(0)';
+        }
     });
 });
 </script>
