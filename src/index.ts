@@ -90,12 +90,12 @@ export default {
 
   Please replace the raw email content in place of [Insert raw email content here]. Please read the email and extract the following information:
 1. Extract the code from the email (if available).
-2. Extract the Resent-From field from email headers as the sender's email address (title). If Resent-From doesn't exist, use the From field.
+2. Extract ONLY the email address part from the Resent-From field (if exists) or From field. If the field is in format "Name <email@example.com>", extract ONLY "email@example.com".
 3. Provide a brief summary of the email's topic (e.g., "account verification").
 
 Format the output as JSON with this structure:
 {
-  "title": "Resent-From email address if exists, otherwise From email address (e.g., 'ups112lb9ps@hotmail.com')",
+  "title": "ONLY the email address part, without name or angle brackets (e.g., 'info@amazon.com')",
   "code": "Extracted verification code (e.g., '123456')",
   "topic": "A brief summary of the email's topic (e.g., 'account verification')",
   "codeExist": 1
