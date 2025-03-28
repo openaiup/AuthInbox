@@ -836,6 +836,13 @@
             opacity: 1;
             transform: translateY(0);
         }
+
+        .force-visible {
+            opacity: 1 !important;
+            transform: translateY(0) !important;
+            visibility: visible !important;
+            display: table-row !important;  /* 对于tr元素 */
+        }
     </style>
 </head>
 <body>
@@ -899,6 +906,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
     initCursorEffect();
     initParticleEffect();
+
+    // 添加保险机制，确保表格内容总是可见
+    setInterval(function() {
+        const tableRows = document.querySelectorAll('#data-table tr');
+        const tableContainer = document.querySelector('.table-container');
+        
+        if (tableContainer) {
+            tableContainer.style.opacity = '1';
+            tableContainer.style.transform = 'translateY(0)';
+        }
+        
+        tableRows.forEach(row => {
+            row.style.opacity = '1';
+            row.style.transform = 'translateY(0)';
+        });
+
+        document.querySelector('.table-container')?.classList.add('force-visible');
+        document.querySelectorAll('#data-table tr').forEach(row => {
+            row.classList.add('force-visible');
+        });
+    }, 5000);
 });
 
 // 复制功能
@@ -960,16 +988,29 @@ function addCopyButtons() {
         }
     });
 
-    // 添加表格行动画 - 使用相同的tableRows变量而不是重新声明
+    // 确保所有表格行可见
     tableRows.forEach((row, index) => {
         if (index > 0) { // 跳过表头
+            row.style.opacity = '1';  // 确保行可见
+            row.style.transform = 'translateY(0)';  // 重置任何变换
             row.style.animationDelay = `${2.5 + index * 0.08}s`;
+        }
+    });
+    
+    // 添加到previousRows以跟踪已知行
+    tableRows.forEach(row => {
+        if (row.cells && row.cells.length > 0) {
+            const rowKey = Array.from(row.cells).map(cell => cell.textContent.trim()).join('|');
+            previousRows.set(rowKey, true);
         }
     });
 }
 
 // 每3秒自动获取新数据
 setInterval(function() {
+    console.log('当前表格行数:', document.querySelectorAll('#data-table tr').length);
+    console.log('表格容器可见性:', document.querySelector('.table-container').style.opacity);
+    
     // 获取当前页面的URL
     const currentUrl = window.location.href;
     
@@ -982,13 +1023,24 @@ setInterval(function() {
             temp.innerHTML = html;
             
             // 获取新的表格内容
-            const newTable = temp.querySelector('#data-table').innerHTML;
+            const newTableEl = temp.querySelector('#data-table');
             
-            // 更新当前表格内容
-            document.getElementById('data-table').innerHTML = newTable;
-            
-            // 重新添加复制按钮
-            addCopyButtons();
+            // 只有在找到表格且表格有内容时才更新
+            if (newTableEl && newTableEl.rows.length > 0) {
+                const newTable = newTableEl.innerHTML;
+                document.getElementById('data-table').innerHTML = newTable;
+                
+                // 重新添加复制按钮并确保表格行可见
+                addCopyButtons();
+                
+                // 确保表格行可见
+                document.querySelectorAll('#data-table tr').forEach(row => {
+                    row.style.opacity = '1';
+                    row.style.transform = 'translateY(0)';
+                });
+            } else {
+                console.log('获取到的新数据不完整，跳过更新');
+            }
         })
         .catch(error => console.error('刷新失败:', error));
 }, 3000);
