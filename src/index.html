@@ -155,8 +155,12 @@
             flex-grow: 1;
             max-width: 1200px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 15px;
             position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
         }
 
         @keyframes glow {
@@ -211,12 +215,16 @@
 
         h1 {
             text-align: center;
-            margin-bottom: 40px;
-            font-size: 3.2em;
+            margin-top: 20px;
+            margin-bottom: 30px;
+            padding: 10px 0;
+            font-size: 2.8em;
+            max-width: 90%;
+            margin-left: auto;
+            margin-right: auto;
             font-weight: 800;
             letter-spacing: 3px;
             position: relative;
-            padding: 15px 0;
             background: linear-gradient(
                 120deg,
                 var(--primary-color) 0%,
@@ -300,7 +308,7 @@
 
         .table-container {
             overflow: hidden;
-            margin: 0 auto;
+            margin: 40px auto;
             background: rgba(10, 25, 41, 0.5);
             border-radius: 16px;
             box-shadow: 
@@ -313,6 +321,10 @@
             animation: tableReveal 1.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
             animation-delay: 2.5s;
             position: relative;
+            max-width: 90%;
+            width: 100%;
+            overflow-x: auto; /* 添加水平滚动条 */
+            -webkit-overflow-scrolling: touch; /* 改善移动端滚动体验 */
         }
 
         @keyframes tableReveal {
@@ -430,24 +442,27 @@
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
+            table-layout: fixed; /* 使列宽更加固定和均匀 */
         }
 
-        th {
-            background: rgba(58, 134, 255, 0.1);
-            color: var(--primary-color);
+        th, td {
             padding: 15px;
             text-align: left;
-            font-weight: bold;
-            border-bottom: 2px solid var(--border-color);
-            transition: all 0.3s ease;
+            overflow: hidden;
+            text-overflow: ellipsis; /* 文本溢出显示省略号 */
+            white-space: nowrap;
         }
 
-        td {
-            padding: 15px;
-            border-bottom: 1px solid var(--border-color);
-            color: var(--text-color);
-            position: relative;
-            transition: all 0.3s ease;
+        /* 为表格列指定宽度比例 */
+        th:nth-child(1), td:nth-child(1) { width: 40%; }
+        th:nth-child(2), td:nth-child(2) { width: 40%; }
+        th:nth-child(3), td:nth-child(3) { width: 20%; }
+
+        @media (max-width: 768px) {
+            th, td {
+                padding: 12px 8px;
+                font-size: 0.9em;
+            }
         }
 
         tr {
@@ -466,17 +481,19 @@
             background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
             color: white;
             border: none;
-            padding: 8px 16px;
+            padding: 6px 12px;
             border-radius: 8px;
             cursor: pointer;
             margin-left: 10px;
-            font-size: 0.9em;
+            font-size: 0.85em;
             transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             box-shadow: 
                 0 4px 15px rgba(58, 134, 255, 0.2),
                 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
             position: relative;
             overflow: hidden;
+            white-space: nowrap;
+            flex-shrink: 0; /* 防止按钮被压缩 */
         }
 
         .copy-btn::before {
@@ -544,8 +561,8 @@
         .code-cell {
             display: flex;
             align-items: center;
-            justify-content: flex-start;
-            gap: 10px;
+            justify-content: space-between; /* 改为space-between使按钮靠右 */
+            width: 100%;
         }
 
         @keyframes highlightNew {
@@ -588,23 +605,16 @@
             z-index: 90;
         }
 
-        @media (max-width: 600px) {
-            .container {
-                padding: 10px;
+        @media (max-width: 768px) {
+            .table-container {
+                max-width: 95%;
+                padding: 15px;
+                margin: 25px auto;
             }
-
-            th, td {
-                padding: 12px;
-            }
-
-            h1 {
-                font-size: 2.4em;
-                letter-spacing: 2px;
-                margin-bottom: 30px;
-            }
-
             .copy-btn {
-                padding: 6px 12px;
+                padding: 5px 10px;
+                font-size: 0.8em;
+                margin-left: 5px;
             }
         }
 
@@ -915,6 +925,61 @@
                 transform: scale(1.2);
             }
         }
+
+        /* 改进移动端适配 */
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            
+            h1 {
+                font-size: 1.8em;
+                letter-spacing: 1px;
+                margin-bottom: 15px;
+            }
+            
+            .table-container {
+                margin: 15px auto;
+                padding: 10px;
+            }
+            
+            th, td {
+                padding: 10px 6px;
+                font-size: 0.8em;
+            }
+            
+            .copy-btn {
+                padding: 4px 8px;
+                font-size: 0.75em;
+            }
+        }
+
+        /* 响应式辅助类 */
+        .hide-on-mobile {
+            display: initial;
+        }
+
+        .show-on-mobile {
+            display: none;
+        }
+
+        @media (max-width: 480px) {
+            .hide-on-mobile {
+                display: none;
+            }
+            
+            .show-on-mobile {
+                display: initial;
+            }
+        }
+
+        td span {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -1085,19 +1150,19 @@ function addCopyButtons() {
             const rowKey = Array.from(cells).map(cell => cell.textContent.trim()).join('|');
             const isNewRow = !previousRows.has(rowKey);
             
-            cells.forEach(cell => {
+            cells.forEach((cell, index) => {
                 const content = cell.textContent.trim();
                 if (content.match(/^\d+$/)) {  // 如果是验证码
                     cell.innerHTML = `
                         <div class="code-cell">
-                            <span class="${isNewRow ? 'new-code' : ''}">${content}</span>
+                            <span class="${isNewRow ? 'new-code' : ''}" title="${content}">${content}</span>
                             <button class="copy-btn" onclick="copyToClipboard('${content}', this)">复制</button>
                         </div>
                     `;
                 } else {  // 其他文本内容
                     cell.innerHTML = `
                         <div class="code-cell">
-                            <span class="${isNewRow ? 'new-code' : ''}">${content}</span>
+                            <span class="${isNewRow ? 'new-code' : ''}" title="${content}">${content}</span>
                         </div>
                     `;
                 }
