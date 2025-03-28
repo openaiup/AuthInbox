@@ -28,22 +28,40 @@
             position: relative;
             overflow-x: hidden;
             opacity: 0;
-            animation: fadeIn 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            animation: futuristicEntry 1.8s cubic-bezier(0.17, 0.84, 0.44, 1) forwards;
             overflow-y: overlay;
             -ms-overflow-style: none;  /* IE 和 Edge */
             scrollbar-width: none;     /* Firefox */
         }
 
-        @keyframes fadeIn {
-            from { 
+        @keyframes futuristicEntry {
+            0% { 
                 opacity: 0; 
-                transform: translateY(30px) scale(0.98);
-                filter: blur(10px);
+                transform: perspective(1000px) rotateX(10deg) translateY(50px) scale(0.95);
+                filter: blur(15px) brightness(0.7) saturate(0.8);
+                clip-path: polygon(0 0, 100% 0, 100% 0, 0 0);
             }
-            to { 
+            25% {
+                opacity: 0.4;
+                filter: blur(10px) brightness(0.8) saturate(0.9);
+                clip-path: polygon(0 0, 100% 0, 100% 25%, 0 25%);
+            }
+            50% {
+                opacity: 0.7;
+                filter: blur(5px) brightness(0.9) saturate(1);
+                transform: perspective(1000px) rotateX(5deg) translateY(25px) scale(0.97);
+                clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%);
+            }
+            75% {
+                opacity: 0.9;
+                filter: blur(2px) brightness(0.95) saturate(1.1);
+                clip-path: polygon(0 0, 100% 0, 100% 75%, 0 75%);
+            }
+            100% { 
                 opacity: 1; 
-                transform: translateY(0) scale(1);
-                filter: blur(0);
+                transform: perspective(1000px) rotateX(0) translateY(0) scale(1);
+                filter: blur(0) brightness(1) saturate(1.1);
+                clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
             }
         }
 
@@ -161,10 +179,18 @@
 
         @keyframes scanline {
             0% {
-                background-position: 0% 0%;
+                transform: translateX(-100%);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.8;
+            }
+            80% {
+                opacity: 0.8;
             }
             100% {
-                background-position: 200% 0%;
+                transform: translateX(100%);
+                opacity: 0;
             }
         }
 
@@ -205,6 +231,8 @@
             opacity: 0;
             transform: scale(0.98);
             transition: opacity 0.5s ease;
+            text-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
+            overflow: hidden;
         }
 
         h1.active {
@@ -223,14 +251,15 @@
             background: linear-gradient(
                 90deg,
                 transparent 0%,
-                rgba(255, 255, 255, 0.2) 50%,
+                rgba(255, 255, 255, 0.4) 50%,
                 transparent 100%
             );
             background-size: 200% 100%;
-            animation: none;
-            z-index: -1;
+            animation: scanline 3s linear infinite;
+            z-index: 1;
             opacity: 0;
-            transition: opacity 0.5s ease;
+            transform: translateX(-100%);
+            animation-delay: 3s;
         }
 
         h1::after {
@@ -272,31 +301,130 @@
         .table-container {
             overflow: hidden;
             margin: 0 auto;
-            background: var(--surface-color);
+            background: rgba(10, 25, 41, 0.5);
             border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid var(--border-color);
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+                0 0 30px rgba(0, 212, 255, 0.15) inset;
             transition: all 0.3s ease;
             opacity: 0;
             transform: translateY(40px);
-            animation: slideUp 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-            animation-delay: 2.8s;
+            animation: tableReveal 1.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            animation-delay: 2.5s;
+            position: relative;
         }
 
-        @keyframes slideUp {
-            from { 
+        @keyframes tableReveal {
+            0% { 
                 opacity: 0;
-                transform: translateY(40px) scale(0.96);
-                filter: blur(8px);
+                transform: perspective(1000px) rotateX(5deg) translateY(50px) scale(0.9);
+                filter: blur(10px) brightness(0.8);
+                clip-path: polygon(0 0, 100% 0, 100% 0, 0 0);
             }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-                filter: blur(0);
+            30% {
+                opacity: 0.5;
+                filter: blur(5px) brightness(0.9);
+                transform: perspective(1000px) rotateX(3deg) translateY(30px) scale(0.95);
+                clip-path: polygon(0 0, 100% 0, 100% 30%, 0 30%);
+            }
+            60% {
+                opacity: 0.8;
+                filter: blur(2px) brightness(0.95);
+                clip-path: polygon(0 0, 100% 0, 100% 60%, 0 60%);
+            }
+            100% { 
+                opacity: 1; 
+                transform: perspective(1000px) rotateX(0) translateY(0) scale(1);
+                filter: blur(0) brightness(1);
+                clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
             }
         }
+
+        /* 添加表格边框发光效果 */
+        .table-container::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            width: calc(100% + 4px);
+            height: calc(100% + 4px);
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color), var(--primary-color));
+            background-size: 200% 200%;
+            animation: borderGlow 8s linear infinite;
+            opacity: 0;
+            border-radius: 18px;
+            z-index: -1;
+            filter: blur(8px);
+            animation: borderGlow 8s linear infinite, fadeIn 1s forwards;
+            animation-delay: 0s, 4s;
+        }
+
+        @keyframes borderGlow {
+            0% { background-position: 0% 0%; }
+            50% { background-position: 100% 100%; }
+            100% { background-position: 0% 0%; }
+        }
+
+        /* 为表格行添加更高级的扫描效果 */
+        #data-table tr {
+            position: relative;
+            opacity: 0;
+            transform: translateX(-20px);
+            animation: rowReveal 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        }
+
+        @keyframes rowReveal {
+            0% {
+                opacity: 0;
+                transform: translateX(-30px) scale(0.97);
+                filter: blur(5px) brightness(0.7);
+            }
+            30% {
+                opacity: 0.3;
+                filter: blur(3px) brightness(0.8);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+                filter: blur(0) brightness(1);
+            }
+        }
+
+        #data-table tr::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.2), transparent);
+            transform: translateX(-100%);
+            animation: rowScan 2s ease-in-out;
+            animation-delay: calc(3s + (var(--row-index, 0) * 0.1s));
+            pointer-events: none;
+        }
+
+        @keyframes rowScan {
+            0% {
+                transform: translateX(-100%);
+            }
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        /* 为每行设置行索引变量 */
+        #data-table tr:nth-child(1) { --row-index: 1; animation-delay: 3.0s; }
+        #data-table tr:nth-child(2) { --row-index: 2; animation-delay: 3.1s; }
+        #data-table tr:nth-child(3) { --row-index: 3; animation-delay: 3.2s; }
+        #data-table tr:nth-child(4) { --row-index: 4; animation-delay: 3.3s; }
+        #data-table tr:nth-child(5) { --row-index: 5; animation-delay: 3.4s; }
+        #data-table tr:nth-child(6) { --row-index: 6; animation-delay: 3.5s; }
+        #data-table tr:nth-child(7) { --row-index: 7; animation-delay: 3.6s; }
+        #data-table tr:nth-child(8) { --row-index: 8; animation-delay: 3.7s; }
+        #data-table tr:nth-child(9) { --row-index: 9; animation-delay: 3.8s; }
+        #data-table tr:nth-child(10) { --row-index: 10; animation-delay: 3.9s; }
 
         table {
             width: 100%;
@@ -343,17 +471,74 @@
             cursor: pointer;
             margin-left: 10px;
             font-size: 0.9em;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            box-shadow: 
+                0 4px 15px rgba(58, 134, 255, 0.2),
+                0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .copy-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent 0%, 
+                rgba(255, 255, 255, 0.2) 50%, 
+                transparent 100%
+            );
             transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(58, 134, 255, 0.2);
         }
 
         .copy-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(58, 134, 255, 0.3);
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 
+                0 8px 25px rgba(58, 134, 255, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+                0 0 15px rgba(58, 134, 255, 0.3);
+        }
+
+        .copy-btn:hover::before {
+            animation: btnScan 1.5s infinite;
         }
 
         .copy-btn:active {
-            transform: translateY(0);
+            transform: translateY(1px) scale(0.98);
+            box-shadow: 0 2px 10px rgba(58, 134, 255, 0.1);
+        }
+
+        @keyframes btnScan {
+            0% {
+                left: -100%;
+            }
+            100% {
+                left: 100%;
+            }
+        }
+
+        /* 复制成功动画 */
+        .copy-success {
+            animation: successPulse 1s ease;
+        }
+
+        @keyframes successPulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+            }
+            50% {
+                transform: scale(1.1);
+                box-shadow: 0 0 0 10px rgba(76, 175, 80, 0);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+            }
         }
 
         .code-cell {
@@ -453,6 +638,283 @@
                 );
             }
         }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 30% 20%, rgba(112, 0, 255, 0.15) 0%, transparent 30%),
+                radial-gradient(circle at 70% 60%, rgba(0, 212, 255, 0.1) 0%, transparent 30%),
+                radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.3) 100%);
+            z-index: -1;
+            opacity: 0;
+            animation: glowingBg 10s ease-in-out infinite, fadeIn 3s ease forwards;
+            pointer-events: none;
+        }
+
+        @keyframes glowingBg {
+            0%, 100% {
+                background-position: 0% 0%, 0% 0%, 0% 0%;
+            }
+            25% {
+                background-position: 5% 5%, -5% -5%, 0% 0%;
+            }
+            50% {
+                background-position: -5% 5%, 5% -5%, 0% 0%;
+            }
+            75% {
+                background-position: -5% -5%, 5% 5%, 0% 0%;
+            }
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgogIDxmaWx0ZXIgaWQ9Im5vaXNlIj4KICAgIDxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIwLjY1IiBudW1PY3RhdmVzPSIzIiBzdGl0Y2hUaWxlcz0ic3RpdGNoIi8+CiAgICA8ZmVDb2xvck1hdHJpeCB0eXBlPSJzYXR1cmF0ZSIgdmFsdWVzPSIwIi8+CiAgPC9maWx0ZXI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsdGVyPSJ1cmwoI25vaXNlKSIgb3BhY2l0eT0iMC4wMyIvPgo8L3N2Zz4=');
+            opacity: 0;
+            animation: fadeIn 3s ease forwards;
+            animation-delay: 1s;
+            pointer-events: none;
+            z-index: -2;
+        }
+
+        /* 添加网格线背景 */
+        .container::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background-image: 
+                linear-gradient(rgba(112, 0, 255, 0.07) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 212, 255, 0.07) 1px, transparent 1px);
+            background-size: 40px 40px;
+            perspective: 1000px;
+            transform-style: preserve-3d;
+            transform: perspective(500px) rotateX(30deg) scale(1.5);
+            opacity: 0;
+            animation: gridFadeIn 3s ease forwards, gridMovement 60s linear infinite;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        @keyframes gridFadeIn {
+            from { opacity: 0; }
+            to { opacity: 0.4; }
+        }
+
+        @keyframes gridMovement {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 40px; }
+        }
+
+        /* 添加鼠标跟随光效 */
+        .cursor-glow {
+            position: fixed;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: radial-gradient(
+                circle at center,
+                rgba(0, 212, 255, 0.15) 0%,
+                rgba(112, 0, 255, 0.1) 40%,
+                transparent 70%
+            );
+            pointer-events: none;
+            z-index: 9997;
+            opacity: 0;
+            mix-blend-mode: screen;
+            transform: translate(-50%, -50%);
+            transition: opacity 0.3s ease;
+            filter: blur(20px);
+        }
+
+        .cursor-glow.active {
+            opacity: 1;
+        }
+
+        /* 增加鼠标交互痕迹 */
+        .cursor-trail {
+            position: fixed;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            pointer-events: none;
+            opacity: 0.7;
+            z-index: 9998;
+            filter: blur(1px);
+            box-shadow: 0 0 6px var(--primary-color);
+            transition: transform 0.1s linear, opacity 0.5s ease;
+        }
+
+        /* 添加闪电特效容器 */
+        .lightning-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.8;
+            filter: blur(1px);
+        }
+
+        .lightning {
+            position: absolute;
+            opacity: 0;
+            background: white;
+            box-shadow: 0 0 10px var(--primary-color), 0 0 20px var(--secondary-color);
+        }
+
+        @keyframes lightningFlash {
+            0% {
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.6;
+            }
+            15% {
+                opacity: 0.2;
+            }
+            20% {
+                opacity: 0.8;
+            }
+            25% {
+                opacity: 0.1;
+            }
+            30% {
+                opacity: 0.7;
+            }
+            100% {
+                opacity: 0;
+            }
+        }
+
+        /* 添加3D视差效果 */
+        .parallax-container {
+            perspective: 1000px;
+            transform-style: preserve-3d;
+            width: 100%;
+            height: 100%;
+        }
+
+        .parallax-element {
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out;
+        }
+
+        .depth-1 { transform: translateZ(10px); }
+        .depth-2 { transform: translateZ(20px); }
+        .depth-3 { transform: translateZ(30px); }
+
+        /* 添加加载覆盖层 */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0a1929;
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+
+        .loading-content {
+            text-align: center;
+            color: var(--primary-color);
+            font-size: 2rem;
+            opacity: 0;
+            animation: fadeInOut 2s ease forwards;
+        }
+
+        .loading-spinner {
+            width: 80px;
+            height: 80px;
+            border: 4px solid transparent;
+            border-top-color: var(--primary-color);
+            border-left-color: var(--secondary-color);
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-progress {
+            width: 200px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            margin: 20px auto;
+            overflow: hidden;
+        }
+
+        .loading-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .loading-text {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(20px); }
+            20% { opacity: 1; transform: translateY(0); }
+            80% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+
+        /* 星空背景 */
+        .stars-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -3;
+            overflow: hidden;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            filter: blur(1px);
+        }
+
+        @keyframes starTwinkle {
+            0%, 100% {
+                opacity: 0.2;
+                transform: scale(0.8);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.2);
+            }
+        }
     </style>
 </head>
 <body>
@@ -515,6 +977,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     initCursorEffect();
     initParticleEffect();
+    initLightningEffect();
+    initParallaxEffect();
+    createStarryBackground();
 });
 
 // 复制功能
@@ -533,18 +998,82 @@ function copyToClipboard(text, btn) {
     try {
         // 执行复制
         document.execCommand('copy');
-        // 更新按钮文字
+        // 更新按钮文字和样式
         const originalText = btn.textContent;
+        const originalBg = btn.style.background;
+        
         btn.textContent = '已复制';
+        btn.style.background = 'linear-gradient(135deg, #4CAF50, #2E7D32)';
+        btn.classList.add('copy-success');
+        
+        // 创建成功粒子效果
+        for (let i = 0; i < 15; i++) {
+            setTimeout(() => {
+                const x = btn.getBoundingClientRect().left + btn.offsetWidth / 2;
+                const y = btn.getBoundingClientRect().top + btn.offsetHeight / 2;
+                createSuccessParticle(x, y);
+            }, i * 30);
+        }
+        
         setTimeout(() => {
             btn.textContent = originalText;
-        }, 1000);
+            btn.style.background = originalBg;
+            btn.classList.remove('copy-success');
+        }, 1500);
     } catch (err) {
         console.error('复制失败:', err);
     }
     
     // 移除临时输入框
     document.body.removeChild(input);
+}
+
+// 成功复制粒子效果
+function createSuccessParticle(x, y) {
+    const particle = document.createElement('div');
+    particle.style.cssText = `
+        position: fixed;
+        width: ${Math.random() * 3 + 2}px;
+        height: ${Math.random() * 3 + 2}px;
+        background: #4CAF50;
+        border-radius: 50%;
+        left: ${x}px;
+        top: ${y}px;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        z-index: 9999;
+        box-shadow: 0 0 5px #4CAF50;
+        opacity: 0;
+    `;
+    document.body.appendChild(particle);
+    
+    // 随机角度和距离
+    const angle = Math.random() * Math.PI * 2;
+    const distance = Math.random() * 60 + 30;
+    const duration = Math.random() * 0.5 + 0.5;
+    
+    particle.animate([
+        { 
+            transform: 'translate(-50%, -50%) scale(0)',
+            opacity: 0
+        },
+        {
+            transform: `translate(calc(-50% + ${Math.cos(angle) * distance * 0.3}px), calc(-50% + ${Math.sin(angle) * distance * 0.3}px)) scale(1)`,
+            opacity: 0.8
+        },
+        {
+            transform: `translate(calc(-50% + ${Math.cos(angle) * distance}px), calc(-50% + ${Math.sin(angle) * distance}px)) scale(0)`,
+            opacity: 0
+        }
+    ], {
+        duration: duration * 1000,
+        easing: 'cubic-bezier(0.45, 0, 0.55, 1)',
+        fill: 'forwards'
+    });
+    
+    setTimeout(() => {
+        document.body.removeChild(particle);
+    }, duration * 1000);
 }
 
 // 添加复制按钮到验证码单元格
@@ -605,27 +1134,110 @@ setInterval(function() {
 // 鼠标跟随效果
 function initCursorEffect() {
     const cursorDot = document.querySelector('.cursor-dot');
+    const cursorGlow = document.createElement('div');
+    cursorGlow.className = 'cursor-glow';
+    document.body.appendChild(cursorGlow);
+    
+    // 创建跟踪点数组
+    const trailDots = [];
+    const trailDotsCount = 12;
+    
+    // 创建跟踪点
+    for (let i = 0; i < trailDotsCount; i++) {
+        const trail = document.createElement('div');
+        trail.className = 'cursor-trail';
+        trail.style.opacity = '0';
+        document.body.appendChild(trail);
+        trailDots.push({
+            element: trail,
+            x: -100,
+            y: -100,
+            age: i * 0.1
+        });
+    }
+    
     let isMouseInPage = false;
     let mouseX = -100, mouseY = -100;
+    const positions = [];
+    const positionsCount = 10;
 
     // 监听鼠标进入页面
     document.addEventListener('mouseenter', () => {
         isMouseInPage = true;
         cursorDot.style.opacity = '1';
+        cursorGlow.classList.add('active');
     });
 
     // 监听鼠标离开页面
     document.addEventListener('mouseleave', () => {
         isMouseInPage = false;
         cursorDot.style.opacity = '0';
+        cursorGlow.classList.remove('active');
         cursorDot.style.transform = 'translate(-100vw, -100vh)';
+        cursorGlow.style.transform = 'translate(-100vw, -100vh)';
+        
+        // 隐藏所有轨迹点
+        trailDots.forEach(dot => {
+            dot.element.style.opacity = '0';
+        });
     });
 
     window.addEventListener('mousemove', (e) => {
         if (!isMouseInPage) return;
         mouseX = e.clientX;
         mouseY = e.clientY;
+        
+        // 记录鼠标位置历史
+        positions.unshift({ x: mouseX, y: mouseY });
+        if (positions.length > positionsCount) {
+            positions.pop();
+        }
+        
         cursorDot.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;
+        cursorGlow.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;
+    });
+    
+    // 使用requestAnimationFrame更新轨迹点
+    function updateTrailDots() {
+        if (isMouseInPage && positions.length > 1) {
+            trailDots.forEach((dot, index) => {
+                const pos = positions[Math.min(index, positions.length - 1)];
+                if (pos) {
+                    const scale = 1 - (index / trailDotsCount) * 0.6;
+                    dot.element.style.transform = `translate(${pos.x}px, ${pos.y}px) translate(-50%, -50%) scale(${scale})`;
+                    dot.element.style.opacity = `${(1 - index / trailDotsCount) * 0.7}`;
+                }
+            });
+        }
+        requestAnimationFrame(updateTrailDots);
+    }
+    
+    updateTrailDots();
+    
+    // 添加鼠标按下效果
+    document.addEventListener('mousedown', () => {
+        if (!isMouseInPage) return;
+        
+        // 鼠标按下时，光晕扩大并变亮
+        cursorGlow.style.width = '400px';
+        cursorGlow.style.height = '400px';
+        cursorGlow.style.background = 'radial-gradient(circle at center, rgba(0, 212, 255, 0.25) 0%, rgba(112, 0, 255, 0.2) 40%, transparent 70%)';
+        
+        // 创建点击效果粒子
+        for (let i = 0; i < 20; i++) {
+            setTimeout(() => {
+                createParticle(mouseX + (Math.random() - 0.5) * 20, mouseY + (Math.random() - 0.5) * 20);
+            }, i * 10);
+        }
+    });
+    
+    document.addEventListener('mouseup', () => {
+        if (!isMouseInPage) return;
+        
+        // 恢复光晕原始大小
+        cursorGlow.style.width = '300px';
+        cursorGlow.style.height = '300px';
+        cursorGlow.style.background = 'radial-gradient(circle at center, rgba(0, 212, 255, 0.15) 0%, rgba(112, 0, 255, 0.1) 40%, transparent 70%)';
     });
 }
 
@@ -720,8 +1332,8 @@ function initParticleEffect() {
 function createTitleParticlesAnimation(titleElement, container) {
     // 针对不同设备优化参数
     const isMobile = window.innerWidth <= 768;
-    const particleCount = isMobile ? 800 : 400; // 在桌面端减少粒子数量
-    const duration = 2000; // 进一步缩短动画时间
+    const particleCount = isMobile ? 700 : 500; // 增加粒子数量
+    const duration = 2000; 
     const particles = [];
     
     const rect = titleElement.getBoundingClientRect();
@@ -729,14 +1341,14 @@ function createTitleParticlesAnimation(titleElement, container) {
     const height = rect.height;
     
     // 增加网格大小，减少粒子密度
-    const gridSize = isMobile ? 8 : 12;
+    const gridSize = isMobile ? 8 : 10;
     const cols = Math.floor(width / gridSize);
     const rows = Math.floor(height / gridSize);
     
     // 创建离屏容器以减少DOM操作
     const fragment = document.createDocumentFragment();
     
-    // 优化粒子创建
+    // 优化粒子创建 - 创建5种不同的粒子类型
     for (let i = 0; i < particleCount; i++) {
         const particle = document.createElement('div');
         particle.className = 'title-particle';
@@ -746,29 +1358,78 @@ function createTitleParticlesAnimation(titleElement, container) {
         const targetX = rect.left + (col * gridSize) + (Math.random() * gridSize);
         const targetY = rect.top + (row * gridSize) + (Math.random() * gridSize);
         
-        // 优化起始位置分布
-        const angle = (i / particleCount) * Math.PI * 2 + Math.random() * 0.5;
-        const distance = Math.random() * 200 + 100; // 减小起始距离范围
+        // 使粒子起始位置更加多样
+        const type = Math.floor(Math.random() * 5); // 0-4五种类型的粒子
+        let startX, startY, particleColor, particleShape;
         
-        const startX = rect.left + width/2 + Math.cos(angle) * distance;
-        const startY = rect.top + height/2 + Math.sin(angle) * distance;
+        if (type === 0) {
+            // 第一类：从四周飞来
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * 300 + 200;
+            startX = window.innerWidth / 2 + Math.cos(angle) * distance;
+            startY = window.innerHeight / 2 + Math.sin(angle) * distance;
+            particleColor = 'var(--primary-color)';
+            particleShape = 'circle';
+        } else if (type === 1) {
+            // 第二类：从顶部飞来
+            startX = Math.random() * window.innerWidth;
+            startY = -100 - Math.random() * 200;
+            particleColor = 'var(--secondary-color)';
+            particleShape = 'circle';
+        } else if (type === 2) {
+            // 第三类：从底部飞来
+            startX = Math.random() * window.innerWidth;
+            startY = window.innerHeight + Math.random() * 200;
+            particleColor = `hsl(${Math.random() * 40 + 180}, 100%, 70%)`;
+            particleShape = 'circle';
+        } else if (type === 3) {
+            // 第四类：从中心爆发
+            startX = rect.left + width / 2;
+            startY = rect.top + height / 2;
+            particleColor = `hsl(${Math.random() * 40 + 220}, 100%, 70%)`;
+            particleShape = Math.random() > 0.7 ? 'square' : 'circle';
+        } else {
+            // 第五类：随机位置
+            startX = Math.random() * window.innerWidth;
+            startY = Math.random() * window.innerHeight;
+            particleColor = `hsl(${Math.random() * 60 + 200}, 100%, 75%)`;
+            particleShape = Math.random() > 0.5 ? 'triangle' : 'circle';
+        }
         
-        // 优化粒子样式，减少阴影效果
-        particle.style.cssText = `
+        // 优化粒子样式，增加多样性
+        const size = Math.random() * 2.5 + 1;
+        const glow = Math.random() * 4 + 1;
+        
+        // 基础样式
+        let particleStyles = `
             position: fixed;
-            width: ${Math.random() * 1.5 + 1}px;
-            height: ${Math.random() * 1.5 + 1}px;
-            background: var(--primary-color);
-            box-shadow: 0 0 ${Math.random() * 2 + 1}px var(--primary-color);
+            width: ${size}px;
+            height: ${size}px;
+            background: ${particleColor};
+            box-shadow: 0 0 ${glow}px ${particleColor};
             left: ${startX}px;
             top: ${startY}px;
             opacity: 0;
-            border-radius: 50%;
             will-change: transform, opacity;
             transform-origin: center;
             pointer-events: none;
+            z-index: ${1000 - Math.floor(Math.random() * 10)};
         `;
         
+        // 根据形状添加不同的样式
+        if (particleShape === 'circle') {
+            particleStyles += 'border-radius: 50%;';
+        } else if (particleShape === 'square') {
+            particleStyles += 'border-radius: 2px; transform: rotate(45deg);';
+        } else if (particleShape === 'triangle') {
+            particleStyles += `
+                clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+                width: ${size * 1.5}px;
+                height: ${size * 1.5}px;
+            `;
+        }
+        
+        particle.style.cssText = particleStyles;
         fragment.appendChild(particle);
         
         particles.push({
@@ -777,8 +1438,10 @@ function createTitleParticlesAnimation(titleElement, container) {
             startY,
             targetX,
             targetY,
-            delay: Math.random() * 300, // 减少延迟时间
-            size: Math.random()
+            delay: Math.random() * 500, // 增加延迟差异
+            size: size,
+            type: type,
+            shape: particleShape
         });
     }
     
@@ -798,16 +1461,83 @@ function createTitleParticlesAnimation(titleElement, container) {
             if (elapsed < p.delay) return;
             
             const particleProgress = Math.min(1, (elapsed - p.delay) / (duration - p.delay));
-            const ease = easeOutQuart(particleProgress); // 使用性能更好的缓动函数
+            
+            // 根据粒子类型使用不同的缓动函数
+            let ease;
+            switch (p.type) {
+                case 0:
+                    ease = easeOutBack(particleProgress);
+                    break;
+                case 1:
+                    ease = easeOutBounce(particleProgress);
+                    break;
+                case 2:
+                    ease = easeOutElastic(particleProgress);
+                    break;
+                case 3:
+                    ease = easeOutExpo(particleProgress);
+                    break;
+                case 4:
+                    ease = easeOutCirc(particleProgress);
+                    break;
+                default:
+                    ease = easeOutQuart(particleProgress);
+            }
             
             const x = p.startX + (p.targetX - p.startX) * ease;
             const y = p.startY + (p.targetY - p.startY) * ease;
             
-            // 减少波动效果
-            const wobble = Math.sin(elapsed * 0.006 + i) * (1 - ease) * 1;
+            // 根据粒子类型添加不同的效果
+            let wobble = 0;
+            let scale = 1;
+            let rotate = 0;
+            let extraY = 0;
             
-            p.element.style.transform = `translate3d(${x - p.startX}px, ${y - p.startY + wobble}px, 0)`;
-            p.element.style.opacity = particleProgress * (0.4 + p.size * 0.6);
+            if (p.type === 0) {
+                wobble = Math.sin(elapsed * 0.01 + i) * (1 - ease) * 3;
+                scale = 0.8 + ease * 0.2 + Math.sin(elapsed * 0.02 + i) * 0.1;
+            } else if (p.type === 1) {
+                rotate = (1 - ease) * 180;
+                scale = 0.7 + ease * 0.3;
+                extraY = Math.sin(particleProgress * Math.PI) * 20 * (1 - particleProgress);
+            } else if (p.type === 2) {
+                wobble = Math.sin(elapsed * 0.02 + i) * (1 - ease) * 5;
+                rotate = (1 - ease) * -90;
+            } else if (p.type === 3) {
+                wobble = Math.cos(elapsed * 0.008 + i * 0.1) * (1 - ease) * 3;
+                scale = 0.9 + Math.sin(elapsed * 0.03 + i * 0.2) * 0.3;
+                rotate = particleProgress * 360;
+            } else {
+                wobble = Math.sin(elapsed * 0.01 + i * 0.3) * 2;
+                scale = 0.8 + particleProgress * 0.4;
+                rotate = particleProgress * 180 * (i % 2 === 0 ? 1 : -1);
+            }
+            
+            // 添加3D效果
+            const perspective = Math.sin(particleProgress * Math.PI) * 500;
+            const rotateX = Math.sin(elapsed * 0.003 + i) * 40 * (1 - ease);
+            const rotateY = Math.cos(elapsed * 0.004 + i) * 40 * (1 - ease);
+            const translateZ = Math.sin(particleProgress * Math.PI) * 100;
+            
+            p.element.style.transform = `
+                translate3d(${x}px, ${y + wobble + extraY}px, ${translateZ}px) 
+                scale(${scale}) 
+                rotate(${rotate}deg)
+                perspective(${perspective}px)
+                rotateX(${rotateX}deg)
+                rotateY(${rotateY}deg)
+            `;
+            
+            // 添加颜色变化
+            if (p.type === 3 || p.type === 4) {
+                const hue = ((elapsed * 0.02) % 360) + (i % 30);
+                p.element.style.boxShadow = `0 0 ${p.size + 2}px hsl(${hue}, 100%, 70%)`;
+                if (particleProgress > 0.7) {
+                    p.element.style.background = `hsl(${hue}, 100%, 70%)`;
+                }
+            }
+            
+            p.element.style.opacity = particleProgress * (0.5 + p.size * 0.5);
         });
         
         if (progress < 1) {
@@ -817,51 +1547,374 @@ function createTitleParticlesAnimation(titleElement, container) {
         }
     }
     
-    // 优化清理动画
+    // 更炫酷的清理动画
     function cleanupAnimation() {
         cancelAnimationFrame(rafId);
         titleElement.style.opacity = '0';
         titleElement.classList.add('active');
         
-        // 使用更大的批次size，减少setTimeout调用次数
-        const batchSize = 40;
-        const batchDelay = 8;
+        // 分批次处理，分散到不同的时间
+        const batchSize = 50;
+        const batchDelay = 5;
         
         for (let i = 0; i < particles.length; i += batchSize) {
             const batch = particles.slice(i, i + batchSize);
             
             setTimeout(() => {
                 batch.forEach(p => {
-                    const randomAngle = Math.random() * Math.PI * 2;
-                    const randomDistance = Math.random() * 30 + 20; // 减小消失距离
-                    const dx = Math.cos(randomAngle) * randomDistance;
-                    const dy = Math.sin(randomAngle) * randomDistance;
-                    
-                    p.element.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-                    p.element.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(0)`;
-                    p.element.style.opacity = '0';
+                    // 创建爆炸效果
+                    if (Math.random() > 0.3) { // 70%的粒子会爆炸
+                        const randomAngle = Math.random() * Math.PI * 2;
+                        const randomDistance = Math.random() * 100 + 50;
+                        const dx = Math.cos(randomAngle) * randomDistance;
+                        const dy = Math.sin(randomAngle) * randomDistance;
+                        const dz = Math.random() * 200 - 100;
+                        
+                        p.element.style.transition = `all 0.7s cubic-bezier(0.17, 0.84, 0.44, 1)`;
+                        p.element.style.transform = `
+                            translate3d(${dx}px, ${dy}px, ${dz}px) 
+                            scale(${Math.random() * 0.5}) 
+                            rotate(${Math.random() * 360}deg)
+                        `;
+                        p.element.style.opacity = '0';
+                    } else { // 30%的粒子会溶解
+                        p.element.style.transition = `all 0.5s ease`;
+                        p.element.style.transform = 'scale(0.1)';
+                        p.element.style.opacity = '0';
+                    }
                 });
                 
                 // 批量移除元素
                 setTimeout(() => {
                     batch.forEach(p => p.element.remove());
-                }, 300);
+                }, 800);
             }, i / batchSize * batchDelay);
         }
         
-        // 更快显示标题
+        // 显示标题，添加特效
         setTimeout(() => {
             titleElement.style.opacity = '1';
             titleElement.style.transform = 'scale(1)';
-        }, 150);
+            
+            // 添加扫描线效果动画触发
+            setTimeout(() => {
+                titleElement.classList.add('scanned');
+            }, 500);
+        }, 100);
     }
     
-    // 使用性能更好的缓动函数
+    // 扩展缓动函数
     function easeOutQuart(t) {
         return 1 - (--t) * t * t * t;
     }
     
+    function easeOutBack(t) {
+        const c1 = 1.70158;
+        const c3 = c1 + 1;
+        return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    }
+    
+    function easeOutBounce(t) {
+        const n1 = 7.5625;
+        const d1 = 2.75;
+        
+        if (t < 1 / d1) {
+            return n1 * t * t;
+        } else if (t < 2 / d1) {
+            return n1 * (t -= 1.5 / d1) * t + 0.75;
+        } else if (t < 2.5 / d1) {
+            return n1 * (t -= 2.25 / d1) * t + 0.9375;
+        } else {
+            return n1 * (t -= 2.625 / d1) * t + 0.984375;
+        }
+    }
+    
+    function easeOutExpo(t) {
+        return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+    }
+    
+    function easeOutCirc(t) {
+        return Math.sqrt(1 - Math.pow(t - 1, 2));
+    }
+    
+    function easeOutElastic(t) {
+        const c4 = (2 * Math.PI) / 3;
+        return t === 0 ? 0 : t === 1 ? 1 : 
+            Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
+    }
+    
     animate();
+}
+
+// 添加创建闪电特效的函数
+function initLightningEffect() {
+    const container = document.createElement('div');
+    container.className = 'lightning-container';
+    document.body.appendChild(container);
+    
+    // 定期创建闪电
+    function createLightning() {
+        // 只有10%的概率创建闪电
+        if (Math.random() > 0.1) {
+            setTimeout(createLightning, Math.random() * 5000 + 3000);
+            return;
+        }
+        
+        const segments = Math.floor(Math.random() * 5) + 3;
+        const width = Math.random() * 600 + 400;
+        const startX = Math.random() * window.innerWidth;
+        const startY = -100;
+        
+        let x = startX;
+        let y = startY;
+        
+        for (let i = 0; i < segments; i++) {
+            const segmentHeight = Math.random() * 100 + 50;
+            const segmentWidth = Math.random() * 2 + 1;
+            const nextX = x + (Math.random() - 0.5) * 100;
+            
+            const lightning = document.createElement('div');
+            lightning.className = 'lightning';
+            lightning.style.width = `${segmentWidth}px`;
+            lightning.style.height = `${segmentHeight}px`;
+            lightning.style.left = `${x}px`;
+            lightning.style.top = `${y}px`;
+            
+            // 计算角度
+            const angle = Math.atan2(nextX - x, segmentHeight);
+            lightning.style.transform = `rotate(${angle}rad)`;
+            container.appendChild(lightning);
+            
+            // 应用动画
+            const animationDuration = Math.random() * 0.5 + 0.2;
+            lightning.style.animation = `lightningFlash ${animationDuration}s ease-in-out forwards`;
+            
+            // 更新位置
+            x = nextX;
+            y += segmentHeight;
+            
+            // 在闪电完成后移除它
+            setTimeout(() => {
+                container.removeChild(lightning);
+            }, animationDuration * 1000);
+        }
+        
+        // 随机间隔后创建下一个闪电
+        setTimeout(createLightning, Math.random() * 5000 + 3000);
+    }
+    
+    // 开始创建闪电
+    setTimeout(createLightning, Math.random() * 3000 + 2000);
+}
+
+// 3D视差效果函数
+function initParallaxEffect() {
+    const container = document.querySelector('.container');
+    container.classList.add('parallax-container');
+    
+    // 添加不同深度的元素
+    const h1 = document.querySelector('h1');
+    const tableContainer = document.querySelector('.table-container');
+    
+    h1.classList.add('parallax-element', 'depth-3');
+    tableContainer.classList.add('parallax-element', 'depth-1');
+    
+    // 鼠标移动时添加视差效果
+    let mouseX = 0, mouseY = 0;
+    let targetX = 0, targetY = 0;
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    
+    document.addEventListener('mousemove', (e) => {
+        mouseX = e.clientX / windowWidth - 0.5;
+        mouseY = e.clientY / windowHeight - 0.5;
+        
+        // 限制倾斜角度
+        targetX = mouseY * 10;  // 垂直移动控制X轴旋转
+        targetY = -mouseX * 10; // 水平移动控制Y轴旋转
+    });
+    
+    // 平滑应用变换
+    function updateParallax() {
+        const elements = document.querySelectorAll('.parallax-element');
+        elements.forEach(el => {
+            const depth = el.classList.contains('depth-1') ? 1 :
+                        el.classList.contains('depth-2') ? 1.5 :
+                        el.classList.contains('depth-3') ? 2 : 1;
+            
+            const rotateX = targetX * depth;
+            const rotateY = targetY * depth;
+            
+            el.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(${depth * 10}px)`;
+        });
+        
+        requestAnimationFrame(updateParallax);
+    }
+    
+    updateParallax();
+}
+
+// 添加加载覆盖层
+function createLoadingOverlay() {
+    const overlay = document.createElement('div');
+    overlay.className = 'loading-overlay';
+    
+    const content = document.createElement('div');
+    content.className = 'loading-content';
+    
+    const spinner = document.createElement('div');
+    spinner.className = 'loading-spinner';
+    
+    const title = document.createElement('div');
+    title.textContent = '阿奎GPT';
+    
+    const progress = document.createElement('div');
+    progress.className = 'loading-progress';
+    
+    const bar = document.createElement('div');
+    bar.className = 'loading-bar';
+    progress.appendChild(bar);
+    
+    const text = document.createElement('div');
+    text.className = 'loading-text';
+    text.textContent = '正在初始化...';
+    
+    content.appendChild(spinner);
+    content.appendChild(title);
+    content.appendChild(progress);
+    content.appendChild(text);
+    overlay.appendChild(content);
+    document.body.appendChild(overlay);
+    
+    // 模拟加载进度
+    let percent = 0;
+    const interval = setInterval(() => {
+        percent += Math.random() * 5 + 1;
+        if (percent > 100) percent = 100;
+        
+        bar.style.width = `${percent}%`;
+        
+        if (percent < 30) {
+            text.textContent = '正在初始化...';
+        } else if (percent < 60) {
+            text.textContent = '加载资源中...';
+        } else if (percent < 90) {
+            text.textContent = '准备完成...';
+        } else {
+            text.textContent = '即将进入...';
+        }
+        
+        if (percent === 100) {
+            clearInterval(interval);
+            setTimeout(() => {
+                overlay.style.opacity = '0';
+                overlay.style.transform = 'translateY(-100%)';
+                setTimeout(() => {
+                    document.body.removeChild(overlay);
+                }, 800);
+            }, 500);
+        }
+    }, 80);
+}
+
+// 页面加载时调用
+window.addEventListener('load', function() {
+    createLoadingOverlay();
+});
+
+// 创建星空背景
+function createStarryBackground() {
+    const container = document.createElement('div');
+    container.className = 'stars-container';
+    document.body.appendChild(container);
+    
+    const starCount = window.innerWidth < 768 ? 80 : 150;
+    
+    for (let i = 0; i < starCount; i++) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        
+        // 随机大小和位置
+        const size = Math.random() * 2 + 1;
+        const x = Math.random() * 100;
+        const y = Math.random() * 100;
+        
+        star.style.width = `${size}px`;
+        star.style.height = `${size}px`;
+        star.style.left = `${x}%`;
+        star.style.top = `${y}%`;
+        
+        // 随机亮度
+        const brightness = Math.random() * 0.8 + 0.2;
+        star.style.opacity = brightness;
+        star.style.boxShadow = `0 0 ${size + 1}px rgba(255, 255, 255, ${brightness})`;
+        
+        // 闪烁动画
+        const duration = Math.random() * 3 + 2;
+        const delay = Math.random() * 5;
+        star.style.animation = `starTwinkle ${duration}s ease-in-out ${delay}s infinite`;
+        
+        container.appendChild(star);
+    }
+    
+    // 偶尔添加流星
+    function createShootingStar() {
+        if (Math.random() > 0.3) { // 70%的概率不创建
+            setTimeout(createShootingStar, Math.random() * 10000 + 5000);
+            return;
+        }
+        
+        const star = document.createElement('div');
+        const size = Math.random() * 2 + 1;
+        const startX = Math.random() * 100;
+        const startY = Math.random() * 30;
+        const angle = Math.random() * 20 + 10; // 10-30度角
+        
+        star.style.cssText = `
+            position: absolute;
+            width: ${size}px;
+            height: ${size * 10}px;
+            background: linear-gradient(
+                to bottom,
+                rgba(255, 255, 255, 0.8) 0%,
+                rgba(255, 255, 255, 0) 100%
+            );
+            border-radius: ${size}px;
+            left: ${startX}%;
+            top: ${startY}%;
+            transform: rotate(${angle}deg);
+            opacity: 0;
+            box-shadow: 0 0 ${size * 2}px rgba(255, 255, 255, 0.8);
+            z-index: 1;
+        `;
+        
+        container.appendChild(star);
+        
+        // 流星动画
+        const duration = Math.random() * 1 + 0.5;
+        const distance = Math.random() * 30 + 20;
+        
+        const keyframes = [
+            { opacity: 0, transform: `rotate(${angle}deg) translateY(0)` },
+            { opacity: 1, transform: `rotate(${angle}deg) translateY(${distance / 2}vh)` },
+            { opacity: 0, transform: `rotate(${angle}deg) translateY(${distance}vh)` }
+        ];
+        
+        star.animate(keyframes, {
+            duration: duration * 1000,
+            easing: 'ease-in-out',
+            fill: 'forwards'
+        });
+        
+        setTimeout(() => {
+            container.removeChild(star);
+        }, duration * 1000);
+        
+        // 随机间隔后再次创建
+        setTimeout(createShootingStar, Math.random() * 10000 + 5000);
+    }
+    
+    setTimeout(createShootingStar, Math.random() * 5000 + 2000);
 }
 </script>
 </body>
