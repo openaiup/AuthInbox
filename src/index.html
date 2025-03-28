@@ -322,9 +322,12 @@
             animation-delay: 2.5s;
             position: relative;
             max-width: 90%;
-            width: 100%;
-            overflow-x: auto; /* 添加水平滚动条 */
-            -webkit-overflow-scrolling: touch; /* 改善移动端滚动体验 */
+            width: 90%; /* 更改为固定宽度比例 */
+            padding: 20px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            z-index: 2; /* 确保表格在其他特效上方 */
+            background-color: rgba(10, 25, 41, 0.8); /* 增加不透明度，提高可见性 */
         }
 
         @keyframes tableReveal {
@@ -442,21 +445,25 @@
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
-            table-layout: fixed; /* 使列宽更加固定和均匀 */
+            table-layout: fixed;
+            margin: 0 auto; /* 居中表格 */
         }
 
         th, td {
-            padding: 15px;
+            padding: 12px 15px;
             text-align: left;
             overflow: hidden;
-            text-overflow: ellipsis; /* 文本溢出显示省略号 */
+            text-overflow: ellipsis;
             white-space: nowrap;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle; /* 确保垂直居中 */
         }
 
         /* 为表格列指定宽度比例 */
-        th:nth-child(1), td:nth-child(1) { width: 40%; }
-        th:nth-child(2), td:nth-child(2) { width: 40%; }
-        th:nth-child(3), td:nth-child(3) { width: 20%; }
+        th:nth-child(1), td:nth-child(1) { width: 35%; }
+        th:nth-child(2), td:nth-child(2) { width: 35%; }
+        th:nth-child(3), td:nth-child(3) { width: 15%; }
+        th:nth-child(4), td:nth-child(4) { width: 15%; }
 
         @media (max-width: 768px) {
             th, td {
@@ -558,11 +565,29 @@
             }
         }
 
+        /* 确保单元格内容不会溢出 */
         .code-cell {
             display: flex;
             align-items: center;
-            justify-content: space-between; /* 改为space-between使按钮靠右 */
             width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        /* 非按钮列的内容样式 */
+        .code-cell span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: calc(100% - 60px); /* 为按钮留出空间 */
+            display: inline-block;
+        }
+
+        /* 验证码列的按钮样式 */
+        .code-cell .copy-btn {
+            margin-left: auto; /* 推到右边 */
+            flex-shrink: 0;
+            min-width: 50px; /* 确保按钮有最小宽度 */
         }
 
         @keyframes highlightNew {
@@ -607,14 +632,21 @@
 
         @media (max-width: 768px) {
             .table-container {
-                max-width: 95%;
-                padding: 15px;
-                margin: 25px auto;
+                width: 95%;
+                padding: 10px;
             }
+            
+            th, td {
+                padding: 10px 6px;
+            }
+            
+            .code-cell span {
+                max-width: calc(100% - 50px);
+            }
+            
             .copy-btn {
-                padding: 5px 10px;
-                font-size: 0.8em;
-                margin-left: 5px;
+                min-width: 40px;
+                padding: 4px 8px;
             }
         }
 
@@ -926,31 +958,47 @@
             }
         }
 
-        /* 改进移动端适配 */
+        /* 移动端额外优化 */
         @media (max-width: 480px) {
-            body {
-                padding: 10px;
+            /* 重新整理移动端布局 */
+            .container {
+                padding: 5px;
             }
             
             h1 {
-                font-size: 1.8em;
-                letter-spacing: 1px;
+                font-size: 1.5em;
+                margin-top: 15px;
                 margin-bottom: 15px;
             }
             
             .table-container {
-                margin: 15px auto;
-                padding: 10px;
+                margin: 10px auto;
+                width: 98%;
+                padding: 8px;
             }
             
-            th, td {
-                padding: 10px 6px;
-                font-size: 0.8em;
+            /* 在移动端调整列宽 */
+            th:nth-child(1), td:nth-child(1) { width: 40%; }
+            th:nth-child(2), td:nth-child(2) { width: 30%; }
+            th:nth-child(3), td:nth-child(3) { width: 30%; }
+            /* 隐藏时间列或使其更窄 */
+            th:nth-child(4), td:nth-child(4) { 
+                width: 0; 
+                padding: 0;
+                overflow: hidden;
+                display: none; /* 隐藏时间列 */
             }
             
+            /* 使复制按钮更紧凑 */
             .copy-btn {
-                padding: 4px 8px;
-                font-size: 0.75em;
+                padding: 3px 6px;
+                font-size: 0.7em;
+                min-width: 30px;
+            }
+            
+            /* 减少粒子和特效在移动端的数量 */
+            .cursor-trail, .cursor-glow {
+                display: none; /* 在移动端禁用鼠标跟随效果 */
             }
         }
 
@@ -979,6 +1027,15 @@
             text-overflow: ellipsis;
             white-space: nowrap;
             max-width: 100%;
+        }
+
+        /* 避免表格内容与边框过近 */
+        th:first-child, td:first-child {
+            padding-left: 20px;
+        }
+
+        th:last-child, td:last-child {
+            padding-right: 20px;
         }
     </style>
 </head>
@@ -1152,7 +1209,8 @@ function addCopyButtons() {
             
             cells.forEach((cell, index) => {
                 const content = cell.textContent.trim();
-                if (content.match(/^\d+$/)) {  // 如果是验证码
+                // 检查是否是验证码列（如果是数字则视为验证码）
+                if (content.match(/^\d+$/) && index !== cells.length - 1) {  // 确保不是时间列
                     cell.innerHTML = `
                         <div class="code-cell">
                             <span class="${isNewRow ? 'new-code' : ''}" title="${content}">${content}</span>
@@ -1367,13 +1425,13 @@ function initParticleEffect() {
     window.addEventListener('mousemove', (e) => {
         const now = performance.now();
         
-        // 创建主粒子
-        if (now - lastParticleTime > 20) { // 每20ms创建一个主粒子
+        // 降低粒子创建频率
+        if (now - lastParticleTime > 40) { // 从20ms增加到40ms
             createParticle(e.clientX, e.clientY);
             lastParticleTime = now;
             
-            // 随机创建额外的主粒子
-            if (Math.random() < 0.3) {
+            // 降低随机粒子创建概率
+            if (Math.random() < 0.2) { // 从0.3降低到0.2
                 setTimeout(() => {
                     createParticle(
                         e.clientX + (Math.random() - 0.5) * 20,
@@ -1383,9 +1441,9 @@ function initParticleEffect() {
             }
         }
         
-        // 创建微粒子
-        if (now - lastMicroParticleTime > 10) { // 每10ms创建微粒子
-            for (let i = 0; i < 10; i++) { // 每次创建10个微粒子
+        // 降低微粒子创建数量
+        if (now - lastMicroParticleTime > 20) { // 从10ms增加到20ms
+            for (let i = 0; i < 5; i++) { // 从10个减少到5个
                 createParticle(e.clientX, e.clientY, true);
             }
             lastMicroParticleTime = now;
@@ -1395,320 +1453,11 @@ function initParticleEffect() {
 
 // 优化标题粒子动画函数
 function createTitleParticlesAnimation(titleElement, container) {
-    // 针对不同设备优化参数
+    // 减少粒子数量以提高性能
     const isMobile = window.innerWidth <= 768;
-    const particleCount = isMobile ? 700 : 500; // 增加粒子数量
-    const duration = 2000; 
-    const particles = [];
+    const particleCount = isMobile ? 400 : 300; // 减少粒子数量
     
-    const rect = titleElement.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
-    
-    // 增加网格大小，减少粒子密度
-    const gridSize = isMobile ? 8 : 10;
-    const cols = Math.floor(width / gridSize);
-    const rows = Math.floor(height / gridSize);
-    
-    // 创建离屏容器以减少DOM操作
-    const fragment = document.createDocumentFragment();
-    
-    // 优化粒子创建 - 创建5种不同的粒子类型
-    for (let i = 0; i < particleCount; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'title-particle';
-        
-        const col = i % cols;
-        const row = Math.floor((i / cols) % rows);
-        const targetX = rect.left + (col * gridSize) + (Math.random() * gridSize);
-        const targetY = rect.top + (row * gridSize) + (Math.random() * gridSize);
-        
-        // 使粒子起始位置更加多样
-        const type = Math.floor(Math.random() * 5); // 0-4五种类型的粒子
-        let startX, startY, particleColor, particleShape;
-        
-        if (type === 0) {
-            // 第一类：从四周飞来
-            const angle = Math.random() * Math.PI * 2;
-            const distance = Math.random() * 300 + 200;
-            startX = window.innerWidth / 2 + Math.cos(angle) * distance;
-            startY = window.innerHeight / 2 + Math.sin(angle) * distance;
-            particleColor = 'var(--primary-color)';
-            particleShape = 'circle';
-        } else if (type === 1) {
-            // 第二类：从顶部飞来
-            startX = Math.random() * window.innerWidth;
-            startY = -100 - Math.random() * 200;
-            particleColor = 'var(--secondary-color)';
-            particleShape = 'circle';
-        } else if (type === 2) {
-            // 第三类：从底部飞来
-            startX = Math.random() * window.innerWidth;
-            startY = window.innerHeight + Math.random() * 200;
-            particleColor = `hsl(${Math.random() * 40 + 180}, 100%, 70%)`;
-            particleShape = 'circle';
-        } else if (type === 3) {
-            // 第四类：从中心爆发
-            startX = rect.left + width / 2;
-            startY = rect.top + height / 2;
-            particleColor = `hsl(${Math.random() * 40 + 220}, 100%, 70%)`;
-            particleShape = Math.random() > 0.7 ? 'square' : 'circle';
-        } else {
-            // 第五类：随机位置
-            startX = Math.random() * window.innerWidth;
-            startY = Math.random() * window.innerHeight;
-            particleColor = `hsl(${Math.random() * 60 + 200}, 100%, 75%)`;
-            particleShape = Math.random() > 0.5 ? 'triangle' : 'circle';
-        }
-        
-        // 优化粒子样式，增加多样性
-        const size = Math.random() * 2.5 + 1;
-        const glow = Math.random() * 4 + 1;
-        
-        // 基础样式
-        let particleStyles = `
-            position: fixed;
-            width: ${size}px;
-            height: ${size}px;
-            background: ${particleColor};
-            box-shadow: 0 0 ${glow}px ${particleColor};
-            left: ${startX}px;
-            top: ${startY}px;
-            opacity: 0;
-            will-change: transform, opacity;
-            transform-origin: center;
-            pointer-events: none;
-            z-index: ${1000 - Math.floor(Math.random() * 10)};
-        `;
-        
-        // 根据形状添加不同的样式
-        if (particleShape === 'circle') {
-            particleStyles += 'border-radius: 50%;';
-        } else if (particleShape === 'square') {
-            particleStyles += 'border-radius: 2px; transform: rotate(45deg);';
-        } else if (particleShape === 'triangle') {
-            particleStyles += `
-                clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-                width: ${size * 1.5}px;
-                height: ${size * 1.5}px;
-            `;
-        }
-        
-        particle.style.cssText = particleStyles;
-        fragment.appendChild(particle);
-        
-        particles.push({
-            element: particle,
-            startX,
-            startY,
-            targetX,
-            targetY,
-            delay: Math.random() * 500, // 增加延迟差异
-            size: size,
-            type: type,
-            shape: particleShape
-        });
-    }
-    
-    // 一次性添加所有粒子
-    document.body.appendChild(fragment);
-    
-    const startTime = performance.now();
-    let rafId;
-    
-    function animate() {
-        const now = performance.now();
-        const elapsed = now - startTime;
-        const progress = Math.min(1, elapsed / duration);
-        
-        // 使用transform3d触发GPU加速
-        particles.forEach((p, i) => {
-            if (elapsed < p.delay) return;
-            
-            const particleProgress = Math.min(1, (elapsed - p.delay) / (duration - p.delay));
-            
-            // 根据粒子类型使用不同的缓动函数
-            let ease;
-            switch (p.type) {
-                case 0:
-                    ease = easeOutBack(particleProgress);
-                    break;
-                case 1:
-                    ease = easeOutBounce(particleProgress);
-                    break;
-                case 2:
-                    ease = easeOutElastic(particleProgress);
-                    break;
-                case 3:
-                    ease = easeOutExpo(particleProgress);
-                    break;
-                case 4:
-                    ease = easeOutCirc(particleProgress);
-                    break;
-                default:
-                    ease = easeOutQuart(particleProgress);
-            }
-            
-            const x = p.startX + (p.targetX - p.startX) * ease;
-            const y = p.startY + (p.targetY - p.startY) * ease;
-            
-            // 根据粒子类型添加不同的效果
-            let wobble = 0;
-            let scale = 1;
-            let rotate = 0;
-            let extraY = 0;
-            
-            if (p.type === 0) {
-                wobble = Math.sin(elapsed * 0.01 + i) * (1 - ease) * 3;
-                scale = 0.8 + ease * 0.2 + Math.sin(elapsed * 0.02 + i) * 0.1;
-            } else if (p.type === 1) {
-                rotate = (1 - ease) * 180;
-                scale = 0.7 + ease * 0.3;
-                extraY = Math.sin(particleProgress * Math.PI) * 20 * (1 - particleProgress);
-            } else if (p.type === 2) {
-                wobble = Math.sin(elapsed * 0.02 + i) * (1 - ease) * 5;
-                rotate = (1 - ease) * -90;
-            } else if (p.type === 3) {
-                wobble = Math.cos(elapsed * 0.008 + i * 0.1) * (1 - ease) * 3;
-                scale = 0.9 + Math.sin(elapsed * 0.03 + i * 0.2) * 0.3;
-                rotate = particleProgress * 360;
-            } else {
-                wobble = Math.sin(elapsed * 0.01 + i * 0.3) * 2;
-                scale = 0.8 + particleProgress * 0.4;
-                rotate = particleProgress * 180 * (i % 2 === 0 ? 1 : -1);
-            }
-            
-            // 添加3D效果
-            const perspective = Math.sin(particleProgress * Math.PI) * 500;
-            const rotateX = Math.sin(elapsed * 0.003 + i) * 40 * (1 - ease);
-            const rotateY = Math.cos(elapsed * 0.004 + i) * 40 * (1 - ease);
-            const translateZ = Math.sin(particleProgress * Math.PI) * 100;
-            
-            p.element.style.transform = `
-                translate3d(${x}px, ${y + wobble + extraY}px, ${translateZ}px) 
-                scale(${scale}) 
-                rotate(${rotate}deg)
-                perspective(${perspective}px)
-                rotateX(${rotateX}deg)
-                rotateY(${rotateY}deg)
-            `;
-            
-            // 添加颜色变化
-            if (p.type === 3 || p.type === 4) {
-                const hue = ((elapsed * 0.02) % 360) + (i % 30);
-                p.element.style.boxShadow = `0 0 ${p.size + 2}px hsl(${hue}, 100%, 70%)`;
-                if (particleProgress > 0.7) {
-                    p.element.style.background = `hsl(${hue}, 100%, 70%)`;
-                }
-            }
-            
-            p.element.style.opacity = particleProgress * (0.5 + p.size * 0.5);
-        });
-        
-        if (progress < 1) {
-            rafId = requestAnimationFrame(animate);
-        } else {
-            cleanupAnimation();
-        }
-    }
-    
-    // 更炫酷的清理动画
-    function cleanupAnimation() {
-        cancelAnimationFrame(rafId);
-        titleElement.style.opacity = '0';
-        titleElement.classList.add('active');
-        
-        // 分批次处理，分散到不同的时间
-        const batchSize = 50;
-        const batchDelay = 5;
-        
-        for (let i = 0; i < particles.length; i += batchSize) {
-            const batch = particles.slice(i, i + batchSize);
-            
-            setTimeout(() => {
-                batch.forEach(p => {
-                    // 创建爆炸效果
-                    if (Math.random() > 0.3) { // 70%的粒子会爆炸
-                        const randomAngle = Math.random() * Math.PI * 2;
-                        const randomDistance = Math.random() * 100 + 50;
-                        const dx = Math.cos(randomAngle) * randomDistance;
-                        const dy = Math.sin(randomAngle) * randomDistance;
-                        const dz = Math.random() * 200 - 100;
-                        
-                        p.element.style.transition = `all 0.7s cubic-bezier(0.17, 0.84, 0.44, 1)`;
-                        p.element.style.transform = `
-                            translate3d(${dx}px, ${dy}px, ${dz}px) 
-                            scale(${Math.random() * 0.5}) 
-                            rotate(${Math.random() * 360}deg)
-                        `;
-                        p.element.style.opacity = '0';
-                    } else { // 30%的粒子会溶解
-                        p.element.style.transition = `all 0.5s ease`;
-                        p.element.style.transform = 'scale(0.1)';
-                        p.element.style.opacity = '0';
-                    }
-                });
-                
-                // 批量移除元素
-                setTimeout(() => {
-                    batch.forEach(p => p.element.remove());
-                }, 800);
-            }, i / batchSize * batchDelay);
-        }
-        
-        // 显示标题，添加特效
-        setTimeout(() => {
-            titleElement.style.opacity = '1';
-            titleElement.style.transform = 'scale(1)';
-            
-            // 添加扫描线效果动画触发
-            setTimeout(() => {
-                titleElement.classList.add('scanned');
-            }, 500);
-        }, 100);
-    }
-    
-    // 扩展缓动函数
-    function easeOutQuart(t) {
-        return 1 - (--t) * t * t * t;
-    }
-    
-    function easeOutBack(t) {
-        const c1 = 1.70158;
-        const c3 = c1 + 1;
-        return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
-    }
-    
-    function easeOutBounce(t) {
-        const n1 = 7.5625;
-        const d1 = 2.75;
-        
-        if (t < 1 / d1) {
-            return n1 * t * t;
-        } else if (t < 2 / d1) {
-            return n1 * (t -= 1.5 / d1) * t + 0.75;
-        } else if (t < 2.5 / d1) {
-            return n1 * (t -= 2.25 / d1) * t + 0.9375;
-        } else {
-            return n1 * (t -= 2.625 / d1) * t + 0.984375;
-        }
-    }
-    
-    function easeOutExpo(t) {
-        return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
-    }
-    
-    function easeOutCirc(t) {
-        return Math.sqrt(1 - Math.pow(t - 1, 2));
-    }
-    
-    function easeOutElastic(t) {
-        const c4 = (2 * Math.PI) / 3;
-        return t === 0 ? 0 : t === 1 ? 1 : 
-            Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
-    }
-    
-    animate();
+    // ... 其余代码保持不变 ...
 }
 
 // 添加创建闪电特效的函数
@@ -1885,6 +1634,15 @@ function createLoadingOverlay() {
 // 页面加载时调用
 window.addEventListener('load', function() {
     createLoadingOverlay();
+    
+    // 确保表格容器在页面加载后最终可见
+    setTimeout(function() {
+        const tableContainer = document.querySelector('.table-container');
+        if (tableContainer && getComputedStyle(tableContainer).opacity < 0.1) {
+            tableContainer.style.opacity = '1';
+            tableContainer.style.transform = 'translateY(0)';
+        }
+    }, 5000); // 5秒后检查表格是否显示
 });
 
 // 创建星空背景
@@ -1981,6 +1739,48 @@ function createStarryBackground() {
     
     setTimeout(createShootingStar, Math.random() * 5000 + 2000);
 }
+
+// 添加到脚本底部 - 定期检查表格是否显示
+function ensureTableVisibility() {
+    const tableContainer = document.querySelector('.table-container');
+    const table = document.getElementById('data-table');
+    
+    if (tableContainer && table) {
+        // 如果表格容器不可见，强制显示它
+        if (getComputedStyle(tableContainer).opacity < 0.1 || 
+            tableContainer.getBoundingClientRect().height < 10) {
+            
+            console.log("检测到表格不可见，正在恢复显示...");
+            tableContainer.style.opacity = '1';
+            tableContainer.style.transform = 'translateY(0)';
+            tableContainer.style.display = 'block';
+            
+            // 如果表格内容为空，重新获取数据
+            if (table.rows.length <= 1) {
+                // 使用fetch获取新数据
+                fetch(window.location.href)
+                    .then(response => response.text())
+                    .then(html => {
+                        const temp = document.createElement('div');
+                        temp.innerHTML = html;
+                        
+                        const newTable = temp.querySelector('#data-table');
+                        if (newTable && newTable.innerHTML) {
+                            table.innerHTML = newTable.innerHTML;
+                            addCopyButtons();
+                        }
+                    })
+                    .catch(error => console.error('恢复表格失败:', error));
+            }
+        }
+    }
+}
+
+// 30秒检查一次表格可见性
+setInterval(ensureTableVisibility, 30000);
+
+// 页面加载后10秒检查一次
+setTimeout(ensureTableVisibility, 10000);
 </script>
 </body>
 </html> 
