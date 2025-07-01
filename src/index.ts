@@ -3,7 +3,7 @@ index.ts
 This is the main file for the Auth Inbox Email Worker.
 created by: github@TooonyChen
 created on: 2024 Oct 07
-Last updated: 2024 Oct 07
+Last updated: 2025 Jul 01   // 🔄 NEW：更新时间说明
 */
 
 import indexHtml from './index.html';
@@ -12,9 +12,30 @@ export interface Env {
     DB: D1Database;
     barkTokens: string;
     barkUrl: string;
-    GoogleAPIKey: string;
+    GoogleAPIKey: string;   // 这里可以写多个 Key，用逗号或空格分隔
     UseBark: string;
 }
+
+/* ---------- 🔄 NEW：模块级轮询助手 ---------- */
+let googleApiKeyIndex = 0;
+
+/** 轮询返回下一个 Google API Key */
+function getNextGoogleApiKey(env: Env): string {
+    // 允许逗号、空格、换行分隔
+    const keys = env.GoogleAPIKey
+        .split(/[\s,]+/)
+        .map(k => k.trim())
+        .filter(Boolean);
+
+    if (keys.length === 0) {
+        throw new Error('No Google API Keys provided in env.GoogleAPIKey');
+    }
+
+    const key = keys[googleApiKeyIndex % keys.length];
+    googleApiKeyIndex = (googleApiKeyIndex + 1) % keys.length;
+    return key;
+}
+/* ---------- 🔄 NEW 结束 ---------- */
 
 export default {
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -69,7 +90,8 @@ export default {
 
     async email(message, env, ctx) {
         const useBark = env.UseBark.toLowerCase() === 'true';
-        const GoogleAPIKey = env.GoogleAPIKey;
+        // 原来的单 Key 已不再需要，但保留这行亦无害
+        // const GoogleAPIKey = env.GoogleAPIKey;
 
         const rawEmail = await new Response(message.raw).text();
         const message_id = message.headers.get("Message-ID");
@@ -118,21 +140,24 @@ If there is no code, clickable link, or this is an advertisement email, return:
             let extractedData = null;
 
             while (retryCount < maxRetries && !extractedData) {
-                const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GoogleAPIKey}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        "contents": [
-                            {
-                                "parts": [
-                                    {"text": aiPrompt}
-                                ]
-                            }
-                        ]
-                    })
-                });
+                /* ---------- 🔄 CHANGED：使用轮询 Key ---------- */
+                const aiResponse = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${getNextGoogleApiKey(env)}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            "contents": [
+                                {
+                                    "parts": [
+                                        {"text": aiPrompt}
+                                    ]
+                                }
+                            ]
+                        })
+                    }
+                );
+                /* ---------- 🔄 CHANGED 结束 ---------- */
 
                 const aiData = await aiResponse.json();
                 console.log(`AI response attempt ${retryCount + 1}:`, aiData);
@@ -148,7 +173,7 @@ If there is no code, clickable link, or this is an advertisement email, return:
                     let extractedText = aiData.candidates[0].content.parts[0].text;
                     console.log(`Extracted Text before parsing: "${extractedText}"`);
 
-                    const jsonMatch = extractedText.match(/```json\s*([\s\S]*?)\s*```/);
+                    const jsonMatch = extractedText.match(/```json\\s*([\\s\\S]*?)\\s*```/);
                     if (jsonMatch && jsonMatch[1]) {
                         extractedText = jsonMatch[1].trim();
                         console.log(`Extracted JSON Text: "${extractedText}"`);
