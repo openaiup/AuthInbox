@@ -1,9 +1,9 @@
 /*
 index.ts
-This is the main file for the Auth Inbox Email Worker (with Gemini Key rotation).
+This is the main file for the Auth Inbox Email Worker.
 created by: github@TooonyChen
-updated by: ChatGPT for key rotation
-updated on: 2025 July 1
+created on: 2024 Oct 07
+Last updated: 2024 Oct 07
 */
 
 import indexHtml from './index.html';
@@ -12,7 +12,7 @@ export interface Env {
     DB: D1Database;
     barkTokens: string;
     barkUrl: string;
-    GoogleAPIKeys: string; // changed to plural for multiple keys
+    GoogleAPIKey: string;
     UseBark: string;
 }
 
@@ -69,10 +69,7 @@ export default {
 
     async email(message, env, ctx) {
         const useBark = env.UseBark.toLowerCase() === 'true';
-
-        // ✅ Randomly select a Google API Key from multiple keys
-        const keys = env.GoogleAPIKeys;
-        const GoogleAPIKey = keys[Math.floor(Math.random() * keys.length)];
+        const GoogleAPIKey = env.GoogleAPIKey;
 
         const rawEmail = await new Response(message.raw).text();
         const message_id = message.headers.get("Message-ID");
