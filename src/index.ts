@@ -71,7 +71,7 @@ export default {
         const useBark = env.UseBark.toLowerCase() === 'true';
 
         // ✅ Randomly select a Google API Key from multiple keys
-        const keys = JSON.parse(env.GoogleAPIKeys);
+        const keys = env.GoogleAPIKeys;
         const GoogleAPIKey = keys[Math.floor(Math.random() * keys.length)];
 
         const rawEmail = await new Response(message.raw).text();
