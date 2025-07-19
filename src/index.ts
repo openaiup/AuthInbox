@@ -89,7 +89,9 @@ export default {
   Email content: ${rawEmail}.
 
   Please replace the raw email content in place of [Insert raw email content here]. Please read the email and extract the following information:
-1. Extract only the code explicitly sent for “login verification” (e.g., phrases like “Your login code is 123456” or “Use 123456 to sign in”). Ignore any other numeric codes or one-time passwords not clearly labeled as a login code.
+1. Extract **only** the verification code whose purpose is explicitly for **logging in / signing in** (look for nearby phrases such as “login code”, “sign-in code”, “one-time sign-in code”, “use XYZ to log in”, etc.).  
+   - **Ignore** any codes related to password reset, password change, account recovery, unlock requests, 2-factor codes for password resets, or other non-login purposes (these typically appear near words like “reset your password”, “change password”, “password assistance”, “recover account”, “unlock”, “安全验证（修改密码）” etc.).  
+   - If multiple codes exist, return only the one that matches the login criterion; if none match, treat as “no code”.
 2. Extract ONLY the email address part:
    - FIRST try to find the Resent-From field in email headers. If found and it's in format "Name <email@example.com>", extract ONLY "email@example.com".
    - If NO Resent-From field exists, then use the From field and extract ONLY the email address part.
@@ -103,7 +105,9 @@ Format the output as JSON with this structure:
   "codeExist": 1
 }
 
-If both a login code and a link are present, only display the login verification code in the 'code' field.
+If both a login code and a link are present, only display the login verification code in the 'code' field, like this:
+"code": "123456"
+
 If there is no login verification code, clickable link, or this is an advertisement email, return:
 {
   "codeExist": 0
