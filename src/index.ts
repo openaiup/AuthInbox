@@ -74,6 +74,16 @@ export default {
         const rawEmail = await new Response(message.raw).text();
         const message_id = message.headers.get("Message-ID");
 
+        // 检查重复邮件
+        const existing = await env.DB.prepare(
+            'SELECT 1 FROM raw_mails WHERE message_id = ?'
+        ).bind(message_id).first();
+
+        if (existing) {
+            console.log(`Duplicate message detected: ${message_id}`);
+            return;
+        }
+
         const {success} = await env.DB.prepare(
             `INSERT INTO raw_mails (from_addr, to_addr, raw, message_id) VALUES (?, ?, ?, ?)`
         ).bind(
@@ -85,30 +95,45 @@ export default {
             console.log(`Failed to save message from ${message.from} to ${message.to}`);
         }
 
+        // 改进的 AI 提示词
         const aiPrompt = `
-  Email content: ${rawEmail}.
+Analyze the raw email below and extract login verification information.
 
-  Please replace the raw email content in place of [Insert raw email content here]. Please read the email and extract the following information:
-1. Extract **only** the verification code whose purpose is explicitly for **logging in / signing in** (look for nearby phrases such as “login code”, “sign-in code”, “one-time sign-in code”, “use XYZ to log in”, etc.).  
-   - **Ignore** any codes related to password reset, password change, account recovery, unlock requests, 2-factor codes for password resets, or other non-login purposes (these typically appear near words like “reset your password”, “change password”, “password assistance”, “recover account”, “unlock”, “安全验证（修改密码）” etc.).  
-   - If multiple codes exist, return only the one that matches the login criterion; if none match, treat as “no code”.
-2. Extract ONLY the email address part:
-   - FIRST try to find the Resent-From field in email headers. If found and it's in format "Name <email@example.com>", extract ONLY "email@example.com".
-   - If NO Resent-From field exists, then use the From field and extract ONLY the email address part.
-3. Provide a brief summary of the email's topic (e.g., "account login verification").
+**IMPORTANT**: Process ONLY the email headers and body. Do NOT be confused by forwarded content or quoted replies.
 
-Format the output as JSON with this structure:
+Raw email:
+${rawEmail}
+
+**Step 1 – Extract sender email address**
+- Search email HEADERS (not body) for these fields IN ORDER:
+  1) "Resent-From:" header
+  2) "From:" header
+- Extract ONLY the email address part (e.g., from "John Doe <john@example.com>" extract "john@example.com")
+- IGNORE any "From:" that appears in the email body or quoted text
+
+**Step 2 – Extract login verification code**
+- Look for LOGIN/SIGN-IN verification codes ONLY
+- Common patterns: 4-8 digits, alphanumeric codes
+- Keywords to look for: "verification code", "login code", "sign in code", "authentication code"
+- EXCLUDE: password reset codes, registration codes, confirmation codes
+- If both code and link exist, return only the code
+
+**Step 3 – Summarize the topic**
+- Use a brief descriptive phrase (max 5 words)
+- Examples: "account login verification", "two-factor authentication", "security code verification"
+
+**Output Requirements**:
+Return ONLY valid JSON without any additional text or formatting:
+
+For emails WITH login verification code:
 {
-  "title": "The extracted email address ONLY, without any name or angle brackets (e.g., 'sender@example.com')",
-  "code": "Extracted login verification code (e.g., '123456')",
-  "topic": "A brief summary of the email's topic (e.g., 'account login verification')",
+  "title": "sender@example.com",
+  "code": "123456",
+  "topic": "account login verification",
   "codeExist": 1
 }
 
-If both a login code and a link are present, only display the login verification code in the 'code' field, like this:
-"code": "123456"
-
-If there is no login verification code, clickable link, or this is an advertisement email, return:
+For emails WITHOUT login verification code (including ads, newsletters, password resets):
 {
   "codeExist": 0
 }
@@ -162,6 +187,14 @@ If there is no login verification code, clickable link, or this is an advertisem
                     try {
                         extractedData = JSON.parse(extractedText);
                         console.log(`Parsed Extracted Data:`, extractedData);
+                        
+                        // 基本验证
+                        if (extractedData.codeExist === 1) {
+                            if (!extractedData.title || !extractedData.code || !extractedData.topic) {
+                                console.error("Missing required fields in AI response");
+                                extractedData = null;
+                            }
+                        }
                     } catch (parseError) {
                         console.error("JSON parsing error:", parseError);
                         console.log(`Problematic JSON Text: "${extractedText}"`);
@@ -175,6 +208,8 @@ If there is no login verification code, clickable link, or this is an advertisem
                     retryCount++;
                     if (retryCount < maxRetries) {
                         console.log("Retrying AI request...");
+                        // 简单的延迟重试
+                        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
                     } else {
                         console.error("Max retries reached. Unable to get valid AI response.");
                     }
@@ -203,26 +238,33 @@ If there is no login verification code, clickable link, or this is an advertisem
                         const barkTokens = env.barkTokens
                             .replace(/^$$|$$$/g, '')
                             .split(',')
-                            .map(token => token.trim());
+                            .map(token => token.trim())
+                            .filter(token => token); // 过滤空token
 
                         const barkUrlEncodedTitle = encodeURIComponent(title);
                         const barkUrlEncodedCode = encodeURIComponent(code);
 
-                        for (const token of barkTokens) {
-                            const barkRequestUrl = `${barkUrl}/${token}/${barkUrlEncodedTitle}/${barkUrlEncodedCode}`;
+                        // 改为并行发送
+                        const barkPromises = barkTokens.map(async (token) => {
+                            try {
+                                const barkRequestUrl = `${barkUrl}/${token}/${barkUrlEncodedTitle}/${barkUrlEncodedCode}`;
+                                const barkResponse = await fetch(barkRequestUrl, {
+                                    method: "GET"
+                                });
 
-                            const barkResponse = await fetch(barkRequestUrl, {
-                                method: "GET"
-                            });
-
-                            if (barkResponse.ok) {
-                                console.log(`Successfully sent notification to Bark for token ${token} for message from ${message.from} to ${message.to}`);
-                                const responseData = await barkResponse.json();
-                                console.log("Bark response:", responseData);
-                            } else {
-                                console.error(`Failed to send notification to Bark for token ${token}: ${barkResponse.status} ${barkResponse.statusText}`);
+                                if (barkResponse.ok) {
+                                    console.log(`Successfully sent notification to Bark for token ${token}`);
+                                } else {
+                                    console.error(`Failed to send notification to Bark for token ${token}: ${barkResponse.status}`);
+                                }
+                                return barkResponse;
+                            } catch (error) {
+                                console.error(`Bark notification error for token ${token}:`, error);
+                                return null;
                             }
-                        }
+                        });
+
+                        await Promise.allSettled(barkPromises);
                     }
                 } else {
                     console.log("No code found in this email, skipping Bark notification.");
