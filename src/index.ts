@@ -151,39 +151,52 @@ export default {
 
             // 改进的 AI 提示词
             const aiPrompt = `
-Email content: ${rawEmail}.
+RAW email (full RFC-822) ↓↓↓
+<<<${rawEmail}>>>
 
-**Step 1 – Sender email (headers only)**
-Return ONLY the email address from the FIRST matching header in this order:
-  1) Resent-From:
-  2) From:
-Give it as "title". Ignore any From lines that appear later in the body or quoted text.
+────────────────────────────────────────
+Step 1 – Sender email (headers ONLY)
+• Read the first address that appears in **this exact order**:  
+  1) Resent-From:  
+  2) X-Forwarded-For:  
+• If both headers are missing, return an empty string "".  
+• Ignore every From: line that appears after the blank line separating headers from the body.  
+• Return this value under the key "title".
 
-**Step 2 – Login verification code (STRICT)**
-• Scan the email header + body line by line.  
-• Extract ONLY the code that meets **all** of the following:  
-  1. The same line, or the line immediately before/after, must contain any of these login keywords  
-     - English: "login", "log in", "sign in", "signin", "sign-in"  
-     - Chinese: "登录", "登入", "登陆"  
-  2. **NONE** of the same two-line window may contain these non-login keywords  
-     - English: "password", "reset", "change", "recover", "unlock"  
-     - Chinese: "密码", "重置", "修改密码", "找回", "恢复", "解锁"  
-• If multiple numeric/alphanumeric strings satisfy (1)+(2), return the first one.  
-• If **no** string meets both conditions, treat as “no login code” and set "codeExist": 0.
+Step 2 – Extract *LOGIN* verification code ONLY
+• Scan the email line-by-line. For each line, consider a two-line window consisting of the current line plus the line directly above or below it (±1 line).  
+• A window **qualifies** when it meets **both** conditions:  
+  (a) Contains at least one **login keyword**  
+      login | log in | sign in | signin | sign-in | 登录 | 登入 | 登陆  
+      **and** at least one of these code keywords  
+      code | verification | 验证码  
+  (b) Contains **none** of these **non-login keywords**  
+      password | reset | forgot | recover | change | unlock |  
+      two-factor | 2fa | mfa | two-step |  
+      密码 | 重置 | 修改 | 找回 | 恢复 | 解锁 | 更新密码  
+• Inside the first qualifying window, extract the first numeric or alphanumeric string that is 4–12 characters long.  
+• If no qualifying window exists, set "codeExist": 0 and leave "code" empty.
 
-**Step 3 – Topic summary**
-Short phrase like "account login verification".
+Step 3 – Topic and scene
+• If Step 2 found a code →  
+  "topic": "account login verification", "scene": "login"  
+• Else if the subject/body clearly indicates password reset, 2FA, two-step verification, etc. → scene = "password_reset"  
+• Otherwise → scene = "other"
 
-JSON output:
+────────────────────────────────────────
+⇣ Return **ONE** pure JSON object (no Markdown, no code block) ⇣
+
+Successful example  
 {
-  "title": "sender@example.com",
+  "title": "forwarder@example.com",
   "code": "123456",
   "topic": "account login verification",
-  "codeExist": 1
+  "codeExist": 1,
+  "scene": "login"
 }
 
-If there is no login verification code, clickable link, or this is an advertisement email, return:
-{ "codeExist": 0 }
+No login code example  
+{ "codeExist": 0, "scene": "other" }
 `;
 
             try {
