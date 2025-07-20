@@ -43,14 +43,6 @@ function getTimeRemaining(createdAt: string): string {
 export default {
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
         try {
-            const url = new URL(request.url);
-            const path = url.pathname;
-            
-            // 处理清理请求
-            if (path === '/cleanup') {
-                return await this.handleCleanup(env);
-            }
-            
             // 自动清理过期验证码（超过10分钟的）
             const cleanupResult = await env.DB.prepare(
                 `DELETE FROM code_mails WHERE datetime(created_at) < datetime('now', '-10 minutes')`
@@ -97,23 +89,6 @@ export default {
                 </td></tr>`;
             }
 
-            // 添加清理按钮
-            const cleanupButtonHtml = `
-                <div style="margin: 20px 0; text-align: right;">
-                    <button onclick="if(confirm('确定要清理所有过期数据吗？')) { 
-                        fetch('/cleanup')
-                            .then(r => r.json())
-                            .then(d => { 
-                                alert('清理完成！删除了 ' + d.deleted_codes + ' 条过期验证码和 ' + d.deleted_raw_emails + ' 封旧邮件'); 
-                                location.reload(); 
-                            })
-                            .catch(e => alert('清理失败：' + e.message)); 
-                    }" style="padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                        🗑️ 清理过期数据
-                    </button>
-                </div>
-            `;
-
             let responseHtml = indexHtml
                 .replace('{{TABLE_HEADERS}}', `
                     <tr>
@@ -124,12 +99,6 @@ export default {
                     </tr>
                 `)
                 .replace('{{DATA}}', dataHtml);
-            
-            // 在表格前插入清理按钮
-            responseHtml = responseHtml.replace(
-                '<table',
-                cleanupButtonHtml + '<table'
-            );
 
             return new Response(responseHtml, {
                 headers: {
@@ -139,40 +108,6 @@ export default {
         } catch (error) {
             console.error('Error querying database:', error);
             return new Response('Internal Server Error', { status: 500 });
-        }
-    },
-
-    // 处理手动清理请求
-    async handleCleanup(env: Env): Promise<Response> {
-        try {
-            // 清理超过10分钟的验证码
-            const deleteResult = await env.DB.prepare(
-                `DELETE FROM code_mails WHERE datetime(created_at) < datetime('now', '-10 minutes')`
-            ).run();
-            
-            // 清理超过7天的原始邮件
-            const deleteRawResult = await env.DB.prepare(
-                `DELETE FROM raw_mails WHERE datetime(created_at) < datetime('now', '-7 days')`
-            ).run();
-            
-            return new Response(JSON.stringify({
-                success: true,
-                deleted_codes: deleteResult.meta.changes || 0,
-                deleted_raw_emails: deleteRawResult.meta.changes || 0
-            }), {
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            });
-        } catch (error) {
-            console.error('Error during cleanup:', error);
-            return new Response(JSON.stringify({ 
-                success: false, 
-                error: error.message 
-            }), { 
-                status: 500,
-                headers: { 'Content-Type': 'application/json' }
-            });
         }
     },
 
