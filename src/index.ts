@@ -151,35 +151,21 @@ export default {
 
             // 改进的 AI 提示词
             const aiPrompt = `
-Analyze the raw email below and extract login verification information.
+Email content: ${rawEmail}.
 
-**IMPORTANT**: Process ONLY the email headers and body. Do NOT be confused by forwarded content or quoted replies.
+**Step 1 – Sender email (headers only)**
+Return ONLY the email address from the FIRST matching header in this order:
+  1) Resent-From:
+  2) From:
+Give it as "title". Ignore any From lines that appear later in the body or quoted text.
 
-Raw email:
-${rawEmail}
+**Step 2 – Login verification code**
+Extract ONLY the login / sign-in verification code; ignore password-reset or other codes.
 
-**Step 1 – Extract sender email address**
-- Search email HEADERS (not body) for these fields IN ORDER:
-  1) "Resent-From:" header
-  2) "From:" header
-- Extract ONLY the email address part (e.g., from "John Doe <john@example.com>" extract "john@example.com")
-- IGNORE any "From:" that appears in the email body or quoted text
+**Step 3 – Topic summary**
+Short phrase like "account login verification".
 
-**Step 2 – Extract login verification code**
-- Look for LOGIN/SIGN-IN verification codes ONLY
-- Common patterns: 4-8 digits, alphanumeric codes
-- Keywords to look for: "verification code", "login code", "sign in code", "authentication code", "OTP", "one-time password"
-- EXCLUDE: password reset codes, registration codes, confirmation codes
-- If both code and link exist, return only the code
-
-**Step 3 – Summarize the topic**
-- Use a brief descriptive phrase (max 5 words)
-- Examples: "account login verification", "two-factor authentication", "security code verification"
-
-**Output Requirements**:
-Return ONLY valid JSON without any additional text or formatting:
-
-For emails WITH login verification code:
+JSON output:
 {
   "title": "sender@example.com",
   "code": "123456",
@@ -187,16 +173,8 @@ For emails WITH login verification code:
   "codeExist": 1
 }
 
-For emails WITHOUT login verification code (including ads, newsletters, password resets):
-{
-  "codeExist": 0
-}
-
-**Edge Cases**:
-- Multiple codes in email: Extract the FIRST login-related code only
-- Code in image: Return {"codeExist": 0}
-- Expired code mentioned: Still extract it
-- Code format variations: "123-456", "ABC123", "12 34 56" are all valid
+If there is no login verification code, clickable link, or this is an advertisement email, return:
+{ "codeExist": 0 }
 `;
 
             try {
