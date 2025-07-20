@@ -3,7 +3,7 @@ index.ts
 This is the main file for the Auth Inbox Email Worker.
 created by: github@TooonyChen
 created on: 2024 Oct 07
-Last updated: 2024 Oct 07
+Last updated: 2024 Dec (Core version)
 */
 
 import indexHtml from './index.html';
@@ -16,9 +16,51 @@ export interface Env {
     UseBark: string;
 }
 
+// HTML 转义函数
+function escapeHtml(text: string): string {
+    const map: { [key: string]: string } = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+// 计算剩余时间
+function getTimeRemaining(createdAt: string): string {
+    const created = new Date(createdAt);
+    const now = new Date();
+    const diffMinutes = Math.floor((now.getTime() - created.getTime()) / 1000 / 60);
+    const remaining = 10 - diffMinutes;
+    
+    if (remaining <= 0) return '<span style="color: #999;">已过期</span>';
+    if (remaining <= 2) return `<span style="color: red; font-weight: bold;">剩余 ${remaining} 分钟</span>`;
+    return `<span style="color: green;">剩余 ${remaining} 分钟</span>`;
+}
+
 export default {
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
         try {
+            const url = new URL(request.url);
+            const path = url.pathname;
+            
+            // 处理清理请求
+            if (path === '/cleanup') {
+                return await this.handleCleanup(env);
+            }
+            
+            // 自动清理过期验证码（超过10分钟的）
+            const cleanupResult = await env.DB.prepare(
+                `DELETE FROM code_mails WHERE datetime(created_at) < datetime('now', '-10 minutes')`
+            ).run();
+            
+            if (cleanupResult.meta.changes > 0) {
+                console.log(`Auto cleaned ${cleanupResult.meta.changes} expired codes`);
+            }
+            
+            // 获取所有验证码数据
             const { results } = await env.DB.prepare(
                 'SELECT from_org, to_addr, topic, code, created_at FROM code_mails ORDER BY created_at DESC'
             ).all();
@@ -30,35 +72,68 @@ export default {
 
                 if (codeLinkParts.length > 1) {
                     const [code, link] = codeLinkParts;
-                    codeLinkContent = `${code}<br><a href="${link}" target="_blank">${row.topic}</a>`;
+                    codeLinkContent = `${escapeHtml(code)}<br><a href="${escapeHtml(link)}" target="_blank">${escapeHtml(row.topic)}</a>`;
                 } else if (row.code.startsWith('http')) {
-                    codeLinkContent = `<a href="${row.code}" target="_blank">${row.topic}</a>`;
+                    codeLinkContent = `<a href="${escapeHtml(row.code)}" target="_blank">${escapeHtml(row.topic)}</a>`;
                 } else {
-                    codeLinkContent = row.code;
+                    codeLinkContent = escapeHtml(row.code);
                 }
 
                 dataHtml += `<tr>
-                    <td>${row.from_org}</td>
-                    <td>${row.topic}</td>
+                    <td>${escapeHtml(row.from_org)}</td>
+                    <td>${escapeHtml(row.topic)}</td>
                     <td>${codeLinkContent}</td>
-                    <td>${row.created_at}</td>
+                    <td>
+                        ${escapeHtml(row.created_at)}<br>
+                        <small>${getTimeRemaining(row.created_at)}</small>
+                    </td>
                 </tr>`;
             }
+            
+            // 如果没有数据，显示提示
+            if (results.length === 0) {
+                dataHtml = `<tr><td colspan="4" style="text-align: center; padding: 40px; color: #6c757d;">
+                    暂无验证码数据
+                </td></tr>`;
+            }
+
+            // 添加清理按钮
+            const cleanupButtonHtml = `
+                <div style="margin: 20px 0; text-align: right;">
+                    <button onclick="if(confirm('确定要清理所有过期数据吗？')) { 
+                        fetch('/cleanup')
+                            .then(r => r.json())
+                            .then(d => { 
+                                alert('清理完成！删除了 ' + d.deleted_codes + ' 条过期验证码和 ' + d.deleted_raw_emails + ' 封旧邮件'); 
+                                location.reload(); 
+                            })
+                            .catch(e => alert('清理失败：' + e.message)); 
+                    }" style="padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        🗑️ 清理过期数据
+                    </button>
+                </div>
+            `;
 
             let responseHtml = indexHtml
                 .replace('{{TABLE_HEADERS}}', `
                     <tr>
-                        <th>📬账号</th>
-                        <th>⚠️安全验证项</th>
-                        <th>🔢登陆验证码（十分钟内有效）</th>
-                        <th>🕐发送时间（美区）</th>
+                        <th>📬 账号</th>
+                        <th>⚠️ 安全验证项</th>
+                        <th>🔢 登录验证码（10分钟内有效）</th>
+                        <th>🕐 发送时间（美区）</th>
                     </tr>
                 `)
                 .replace('{{DATA}}', dataHtml);
+            
+            // 在表格前插入清理按钮
+            responseHtml = responseHtml.replace(
+                '<table',
+                cleanupButtonHtml + '<table'
+            );
 
             return new Response(responseHtml, {
                 headers: {
-                    'Content-Type': 'text/html',
+                    'Content-Type': 'text/html; charset=utf-8',
                 },
             });
         } catch (error) {
@@ -67,36 +142,80 @@ export default {
         }
     },
 
+    // 处理手动清理请求
+    async handleCleanup(env: Env): Promise<Response> {
+        try {
+            // 清理超过10分钟的验证码
+            const deleteResult = await env.DB.prepare(
+                `DELETE FROM code_mails WHERE datetime(created_at) < datetime('now', '-10 minutes')`
+            ).run();
+            
+            // 清理超过7天的原始邮件
+            const deleteRawResult = await env.DB.prepare(
+                `DELETE FROM raw_mails WHERE datetime(created_at) < datetime('now', '-7 days')`
+            ).run();
+            
+            return new Response(JSON.stringify({
+                success: true,
+                deleted_codes: deleteResult.meta.changes || 0,
+                deleted_raw_emails: deleteRawResult.meta.changes || 0
+            }), {
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+        } catch (error) {
+            console.error('Error during cleanup:', error);
+            return new Response(JSON.stringify({ 
+                success: false, 
+                error: error.message 
+            }), { 
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    },
+
     async email(message, env, ctx) {
-        const useBark = env.UseBark.toLowerCase() === 'true';
-        const GoogleAPIKey = env.GoogleAPIKey;
-
-        const rawEmail = await new Response(message.raw).text();
+        const startTime = Date.now();
         const message_id = message.headers.get("Message-ID");
+        
+        try {
+            const useBark = env.UseBark.toLowerCase() === 'true';
+            const GoogleAPIKey = env.GoogleAPIKey;
+            
+            if (!GoogleAPIKey) {
+                console.error('GoogleAPIKey is required');
+                return;
+            }
 
-        // 检查重复邮件
-        const existing = await env.DB.prepare(
-            'SELECT 1 FROM raw_mails WHERE message_id = ?'
-        ).bind(message_id).first();
+            // 检查重复邮件
+            const existing = await env.DB.prepare(
+                'SELECT 1 FROM raw_mails WHERE message_id = ?'
+            ).bind(message_id).first();
 
-        if (existing) {
-            console.log(`Duplicate message detected: ${message_id}`);
-            return;
-        }
+            if (existing) {
+                console.log(`Duplicate message detected: ${message_id}`);
+                return;
+            }
 
-        const {success} = await env.DB.prepare(
-            `INSERT INTO raw_mails (from_addr, to_addr, raw, message_id) VALUES (?, ?, ?, ?)`
-        ).bind(
-            message.from, message.to, rawEmail, message_id
-        ).run();
+            const rawEmail = await new Response(message.raw).text();
 
-        if (!success) {
-            message.setReject(`Failed to save message from ${message.from} to ${message.to}`);
-            console.log(`Failed to save message from ${message.from} to ${message.to}`);
-        }
+            // 保存原始邮件
+            const {success} = await env.DB.prepare(
+                `INSERT INTO raw_mails (from_addr, to_addr, raw, message_id) VALUES (?, ?, ?, ?)`
+            ).bind(
+                message.from, message.to, rawEmail, message_id
+            ).run();
 
-        // 改进的 AI 提示词
-        const aiPrompt = `
+            if (!success) {
+                message.setReject(`Failed to save message from ${message.from} to ${message.to}`);
+                console.log(`Failed to save message from ${message.from} to ${message.to}`);
+                return;
+            }
+
+            // 改进的 AI 提示词
+            const aiPrompt = `
 Analyze the raw email below and extract login verification information.
 
 **IMPORTANT**: Process ONLY the email headers and body. Do NOT be confused by forwarded content or quoted replies.
@@ -114,7 +233,7 @@ ${rawEmail}
 **Step 2 – Extract login verification code**
 - Look for LOGIN/SIGN-IN verification codes ONLY
 - Common patterns: 4-8 digits, alphanumeric codes
-- Keywords to look for: "verification code", "login code", "sign in code", "authentication code"
+- Keywords to look for: "verification code", "login code", "sign in code", "authentication code", "OTP", "one-time password"
 - EXCLUDE: password reset codes, registration codes, confirmation codes
 - If both code and link exist, return only the code
 
@@ -137,143 +256,168 @@ For emails WITHOUT login verification code (including ads, newsletters, password
 {
   "codeExist": 0
 }
+
+**Edge Cases**:
+- Multiple codes in email: Extract the FIRST login-related code only
+- Code in image: Return {"codeExist": 0}
+- Expired code mentioned: Still extract it
+- Code format variations: "123-456", "ABC123", "12 34 56" are all valid
 `;
 
-        try {
-            const maxRetries = 3;
-            let retryCount = 0;
-            let extractedData = null;
+            try {
+                const maxRetries = 3;
+                let retryCount = 0;
+                let extractedData = null;
 
-            while (retryCount < maxRetries && !extractedData) {
-                const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GoogleAPIKey}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        "contents": [
-                            {
-                                "parts": [
-                                    {"text": aiPrompt}
-                                ]
-                            }
-                        ]
-                    })
-                });
-
-                const aiData = await aiResponse.json();
-                console.log(`AI response attempt ${retryCount + 1}:`, aiData);
-
-                if (
-                    aiData &&
-                    aiData.candidates &&
-                    aiData.candidates[0] &&
-                    aiData.candidates[0].content &&
-                    aiData.candidates[0].content.parts &&
-                    aiData.candidates[0].content.parts[0]
-                ) {
-                    let extractedText = aiData.candidates[0].content.parts[0].text;
-                    console.log(`Extracted Text before parsing: "${extractedText}"`);
-
-                    const jsonMatch = extractedText.match(/```json\s*([\s\S]*?)\s*```/);
-                    if (jsonMatch && jsonMatch[1]) {
-                        extractedText = jsonMatch[1].trim();
-                        console.log(`Extracted JSON Text: "${extractedText}"`);
-                    } else {
-                        extractedText = extractedText.trim();
-                        console.log(`Assuming entire text is JSON: "${extractedText}"`);
-                    }
-
+                while (retryCount < maxRetries && !extractedData) {
                     try {
-                        extractedData = JSON.parse(extractedText);
-                        console.log(`Parsed Extracted Data:`, extractedData);
-                        
-                        // 基本验证
-                        if (extractedData.codeExist === 1) {
-                            if (!extractedData.title || !extractedData.code || !extractedData.topic) {
-                                console.error("Missing required fields in AI response");
-                                extractedData = null;
+                        const aiResponse = await fetch(
+                            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GoogleAPIKey}`,
+                            {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    "contents": [
+                                        {
+                                            "parts": [
+                                                {"text": aiPrompt}
+                                            ]
+                                        }
+                                    ]
+                                })
                             }
+                        );
+
+                        if (!aiResponse.ok) {
+                            throw new Error(`AI API error: ${aiResponse.status} ${aiResponse.statusText}`);
                         }
-                    } catch (parseError) {
-                        console.error("JSON parsing error:", parseError);
-                        console.log(`Problematic JSON Text: "${extractedText}"`);
-                    }
 
-                } else {
-                    console.error("AI response is missing expected data structure");
-                }
+                        const aiData = await aiResponse.json();
+                        console.log(`AI response attempt ${retryCount + 1}:`, aiData);
 
-                if (!extractedData) {
-                    retryCount++;
-                    if (retryCount < maxRetries) {
-                        console.log("Retrying AI request...");
-                        // 简单的延迟重试
-                        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-                    } else {
-                        console.error("Max retries reached. Unable to get valid AI response.");
-                    }
-                }
-            }
+                        if (
+                            aiData &&
+                            aiData.candidates &&
+                            aiData.candidates[0] &&
+                            aiData.candidates[0].content &&
+                            aiData.candidates[0].content.parts &&
+                            aiData.candidates[0].content.parts[0]
+                        ) {
+                            let extractedText = aiData.candidates[0].content.parts[0].text;
+                            console.log(`Extracted Text before parsing: "${extractedText}"`);
 
-            if (extractedData) {
-                if (extractedData.codeExist === 1) {
-                    const title = extractedData.title || "Unknown Organization";
-                    const code = extractedData.code || "No Code Found";
-                    const topic = extractedData.topic || "No Topic Found";
-
-                    const { success: codeMailSuccess } = await env.DB.prepare(
-                        `INSERT INTO code_mails (from_addr, from_org, to_addr, code, topic, message_id) VALUES (?, ?, ?, ?, ?, ?)`
-                    ).bind(
-                        message.from, title, message.to, code, topic, message_id
-                    ).run();
-
-                    if (!codeMailSuccess) {
-                        message.setReject(`Failed to save extracted code for message from ${message.from} to ${message.to}`);
-                        console.log(`Failed to save extracted code for message from ${message.from} to ${message.to}`);
-                    }
-
-                    if (useBark) {
-                        const barkUrl = env.barkUrl;
-                        const barkTokens = env.barkTokens
-                            .replace(/^$$|$$$/g, '')
-                            .split(',')
-                            .map(token => token.trim())
-                            .filter(token => token); // 过滤空token
-
-                        const barkUrlEncodedTitle = encodeURIComponent(title);
-                        const barkUrlEncodedCode = encodeURIComponent(code);
-
-                        // 改为并行发送
-                        const barkPromises = barkTokens.map(async (token) => {
-                            try {
-                                const barkRequestUrl = `${barkUrl}/${token}/${barkUrlEncodedTitle}/${barkUrlEncodedCode}`;
-                                const barkResponse = await fetch(barkRequestUrl, {
-                                    method: "GET"
-                                });
-
-                                if (barkResponse.ok) {
-                                    console.log(`Successfully sent notification to Bark for token ${token}`);
-                                } else {
-                                    console.error(`Failed to send notification to Bark for token ${token}: ${barkResponse.status}`);
-                                }
-                                return barkResponse;
-                            } catch (error) {
-                                console.error(`Bark notification error for token ${token}:`, error);
-                                return null;
+                            const jsonMatch = extractedText.match(/```json\s*([\s\S]*?)\s*```/);
+                            if (jsonMatch && jsonMatch[1]) {
+                                extractedText = jsonMatch[1].trim();
+                            } else {
+                                extractedText = extractedText.trim();
                             }
-                        });
 
-                        await Promise.allSettled(barkPromises);
+                            try {
+                                extractedData = JSON.parse(extractedText);
+                                console.log(`Parsed Extracted Data:`, extractedData);
+                                
+                                // 验证数据
+                                if (extractedData.codeExist === 1) {
+                                    if (!extractedData.title || !extractedData.code || !extractedData.topic) {
+                                        console.error("Missing required fields in AI response");
+                                        extractedData = null;
+                                        throw new Error("Invalid data structure");
+                                    }
+                                }
+                            } catch (parseError) {
+                                console.error("JSON parsing error:", parseError);
+                                throw parseError;
+                            }
+                        } else {
+                            throw new Error("AI response is missing expected data structure");
+                        }
+                    } catch (error) {
+                        console.error(`Attempt ${retryCount + 1} failed:`, error);
+                        if (retryCount < maxRetries - 1) {
+                            // 简单延迟重试
+                            await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+                        }
+                    }
+
+                    if (!extractedData) {
+                        retryCount++;
+                        if (retryCount >= maxRetries) {
+                            console.error("Max retries reached. Unable to get valid AI response.");
+                        }
+                    }
+                }
+
+                if (extractedData) {
+                    if (extractedData.codeExist === 1) {
+                        const title = extractedData.title || "Unknown Organization";
+                        const code = extractedData.code || "No Code Found";
+                        const topic = extractedData.topic || "No Topic Found";
+
+                        const { success: codeMailSuccess } = await env.DB.prepare(
+                            `INSERT INTO code_mails (from_addr, from_org, to_addr, code, topic, message_id) VALUES (?, ?, ?, ?, ?, ?)`
+                        ).bind(
+                            message.from, title, message.to, code, topic, message_id
+                        ).run();
+
+                        if (!codeMailSuccess) {
+                            console.error(`Failed to save extracted code for message from ${message.from} to ${message.to}`);
+                        }
+
+                        // 发送 Bark 通知
+                        if (useBark) {
+                            const barkUrl = env.barkUrl;
+                            const barkTokens = env.barkTokens
+                                .replace(/^\$\$|\$\$$/g, '')
+                                .split(',')
+                                .map(token => token.trim())
+                                .filter(token => token);
+
+                            const barkUrlEncodedTitle = encodeURIComponent(title);
+                            const barkUrlEncodedCode = encodeURIComponent(code);
+
+                            // 并行发送所有 Bark 通知
+                            const barkPromises = barkTokens.map(async (token) => {
+                                try {
+                                    const barkRequestUrl = `${barkUrl}/${token}/${barkUrlEncodedTitle}/${barkUrlEncodedCode}`;
+                                    const barkResponse = await fetch(barkRequestUrl, {
+                                        method: "GET"
+                                    });
+
+                                    if (barkResponse.ok) {
+                                        console.log(`Successfully sent notification to Bark for token ${token}`);
+                                    } else {
+                                        console.error(`Failed to send notification to Bark for token ${token}: ${barkResponse.status}`);
+                                    }
+                                    return barkResponse;
+                                } catch (error) {
+                                    console.error(`Bark notification error for token ${token}:`, error);
+                                    return null;
+                                }
+                            });
+
+                            await Promise.allSettled(barkPromises);
+                        }
+
+                        // 记录处理时间
+                        const processingTime = Date.now() - startTime;
+                        console.log(`Email processed successfully in ${processingTime}ms`);
+                    } else {
+                        console.log("No login verification code found in this email.");
                     }
                 } else {
-                    console.log("No code found in this email, skipping Bark notification.");
+                    console.error("Failed to extract data from AI response after retries.");
                 }
-            } else {
-                console.error("Failed to extract data from AI response after retries.");
+            } catch (e) {
+                console.error("Error calling AI or saving to database:", e);
             }
-        } catch (e) {
-            console.error("Error calling AI or saving to database:", e);
+        } catch (error) {
+            console.error(`Failed to process email from ${message.from} to ${message.to}:`, {
+                error: error.message,
+                messageId: message_id
+            });
         }
     }
 } satisfies ExportedHandler<Env>;
