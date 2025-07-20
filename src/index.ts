@@ -159,8 +159,17 @@ Return ONLY the email address from the FIRST matching header in this order:
   2) From:
 Give it as "title". Ignore any From lines that appear later in the body or quoted text.
 
-**Step 2 – Login verification code**
-Extract ONLY the login / sign-in verification code; ignore password-reset or other codes.
+**Step 2 – Login verification code (STRICT)**
+• Scan the email header + body line by line.  
+• Extract ONLY the code that meets **all** of the following:  
+  1. The same line, or the line immediately before/after, must contain any of these login keywords  
+     - English: "login", "log in", "sign in", "signin", "sign-in"  
+     - Chinese: "登录", "登入", "登陆"  
+  2. **NONE** of the same two-line window may contain these non-login keywords  
+     - English: "password", "reset", "change", "recover", "unlock"  
+     - Chinese: "密码", "重置", "修改密码", "找回", "恢复", "解锁"  
+• If multiple numeric/alphanumeric strings satisfy (1)+(2), return the first one.  
+• If **no** string meets both conditions, treat as “no login code” and set "codeExist": 0.
 
 **Step 3 – Topic summary**
 Short phrase like "account login verification".
