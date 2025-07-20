@@ -151,52 +151,32 @@ export default {
 
             // 改进的 AI 提示词
             const aiPrompt = `
-RAW email (full RFC-822) ↓↓↓
-<<<${rawEmail}>>>
+  Email content: ${rawEmail}.
 
-────────────────────────────────────────
-Step 1 – Sender email (headers ONLY)
-• Read the first address that appears in **this exact order**:  
-  1) Resent-From:  
-  2) X-Forwarded-For:  
-• If both headers are missing, return an empty string "".  
-• Ignore every From: line that appears after the blank line separating headers from the body.  
-• Return this value under the key "title".
+  Please replace the raw email content in place of [Insert raw email content here]. Please read the email and extract the following information:
+1. Extract **only** the verification code whose purpose is explicitly for **logging in / signing in** (look for nearby phrases such as “login code”, “sign-in code”, “one-time sign-in code”, “use XYZ to log in”, etc.).  
+   - **Ignore** any codes related to password reset, password change, account recovery, unlock requests, 2-factor codes for password resets, or other non-login purposes (these typically appear near words like “reset your password”, “change password”, “password assistance”, “recover account”, “unlock”, “安全验证（修改密码）” etc.).  
+   - If multiple codes exist, return only the one that matches the login criterion; if none match, treat as “no code”.
+2. Extract ONLY the email address part:
+   - FIRST try to find the Resent-From field in email headers. If found and it's in format "Name <email@example.com>", extract ONLY "email@example.com".
+   - If NO Resent-From field exists, then use the From field and extract ONLY the email address part.
+3. Provide a brief summary of the email's topic (e.g., "account login verification").
 
-Step 2 – Extract *LOGIN* verification code ONLY
-• Scan the email line-by-line. For each line, consider a two-line window consisting of the current line plus the line directly above or below it (±1 line).  
-• A window **qualifies** when it meets **both** conditions:  
-  (a) Contains at least one **login keyword**  
-      login | log in | sign in | signin | sign-in | 登录 | 登入 | 登陆  
-      **and** at least one of these code keywords  
-      code | verification | 验证码  
-  (b) Contains **none** of these **non-login keywords**  
-      password | reset | forgot | recover | change | unlock |  
-      two-factor | 2fa | mfa | two-step |  
-      密码 | 重置 | 修改 | 找回 | 恢复 | 解锁 | 更新密码  
-• Inside the first qualifying window, extract the first numeric or alphanumeric string that is 4–12 characters long.  
-• If no qualifying window exists, set "codeExist": 0 and leave "code" empty.
-
-Step 3 – Topic and scene
-• If Step 2 found a code →  
-  "topic": "account login verification", "scene": "login"  
-• Else if the subject/body clearly indicates password reset, 2FA, two-step verification, etc. → scene = "password_reset"  
-• Otherwise → scene = "other"
-
-────────────────────────────────────────
-⇣ Return **ONE** pure JSON object (no Markdown, no code block) ⇣
-
-Successful example  
+Format the output as JSON with this structure:
 {
-  "title": "forwarder@example.com",
-  "code": "123456",
-  "topic": "account login verification",
-  "codeExist": 1,
-  "scene": "login"
+  "title": "The extracted email address ONLY, without any name or angle brackets (e.g., 'sender@example.com')",
+  "code": "Extracted login verification code (e.g., '123456')",
+  "topic": "A brief summary of the email's topic (e.g., 'account login verification')",
+  "codeExist": 1
 }
 
-No login code example  
-{ "codeExist": 0, "scene": "other" }
+If both a login code and a link are present, only display the login verification code in the 'code' field, like this:
+"code": "123456"
+
+If there is no login verification code, clickable link, or this is an advertisement email, return:
+{
+  "codeExist": 0
+}
 `;
 
             try {
