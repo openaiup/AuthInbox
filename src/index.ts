@@ -4,6 +4,7 @@ This is the main file for the Auth Inbox Email Worker.
 created by: github@TooonyChen
 created on: 2024 Oct 07
 Last updated: 2024 Dec (Core version)
+Enhanced: 2025 Jan (API Rotation)
 */
 
 import indexHtml from './index.html';
@@ -13,6 +14,8 @@ export interface Env {
     barkTokens: string;
     barkUrl: string;
     GoogleAPIKey: string;
+    GoogleAPIKey2?: string;  // 第二个 API Key（可选）
+    GoogleAPIKey3?: string;  // 第三个 API Key（可选）
     UseBark: string;
 }
 
@@ -38,6 +41,72 @@ function getTimeRemaining(createdAt: string): string {
     if (remaining <= 0) return '<span style="color: #999;">已过期</span>';
     if (remaining <= 2) return `<span style="color: red; font-weight: bold;">剩余 ${remaining} 分钟</span>`;
     return `<span style="color: green;">剩余 ${remaining} 分钟</span>`;
+}
+
+// 获取可用的 API Keys
+function getAvailableAPIKeys(env: Env): string[] {
+    const keys = [];
+    if (env.GoogleAPIKey) keys.push(env.GoogleAPIKey);
+    if (env.GoogleAPIKey2) keys.push(env.GoogleAPIKey2);
+    if (env.GoogleAPIKey3) keys.push(env.GoogleAPIKey3);
+    return keys;
+}
+
+// 轮换调用 AI API
+async function callAIWithRotation(prompt: string, env: Env): Promise<any> {
+    const apiKeys = getAvailableAPIKeys(env);
+    
+    if (apiKeys.length === 0) {
+        throw new Error('No API keys available');
+    }
+    
+    // 轮换使用不同的 API Key
+    for (let i = 0; i < apiKeys.length; i++) {
+        const currentKey = apiKeys[i];
+        console.log(`Trying API key ${i + 1}/${apiKeys.length}`);
+        
+        try {
+            const aiResponse = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${currentKey}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        "contents": [
+                            {
+                                "parts": [
+                                    {"text": prompt}
+                                ]
+                            }
+                        ]
+                    })
+                }
+            );
+
+            if (aiResponse.ok) {
+                console.log(`✅ API key ${i + 1} succeeded`);
+                return await aiResponse.json();
+            } else if (aiResponse.status === 429) {
+                // 配额用完，尝试下一个 key
+                console.log(`❌ API key ${i + 1} quota exceeded (429), trying next key`);
+                continue;
+            } else {
+                throw new Error(`API error: ${aiResponse.status} ${aiResponse.statusText}`);
+            }
+        } catch (error) {
+            console.error(`API key ${i + 1} failed:`, error);
+            
+            // 如果是最后一个 key，抛出错误
+            if (i === apiKeys.length - 1) {
+                throw error;
+            }
+            // 否则继续尝试下一个 key
+        }
+    }
+    
+    throw new Error('All API keys failed');
 }
 
 export default {
@@ -82,6 +151,18 @@ export default {
                 </tr>`;
             }
             
+            // 获取API密钥信息用于显示
+            const availableKeys = getAvailableAPIKeys(env);
+            const totalDailyQuota = availableKeys.length * 50; // 每个 key 50次/天
+            
+            // API状态显示
+            const apiStatusHtml = `
+                <div style="margin: 20px 0; padding: 10px; background: #e3f2fd; border-radius: 5px;">
+                    🔑 可用API密钥: ${availableKeys.length} 个 (总配额: ${totalDailyQuota} 次/天)
+                    <br>📊 轮换状态: ${availableKeys.length > 1 ? '已启用自动轮换' : '单密钥模式'}
+                </div>
+            `;
+            
             // 如果没有数据，显示提示
             if (results.length === 0) {
                 dataHtml = `<tr><td colspan="4" style="text-align: center; padding: 40px; color: #6c757d;">
@@ -98,7 +179,7 @@ export default {
                         <th>🕐 发送时间（美区）</th>
                     </tr>
                 `)
-                .replace('{{DATA}}', dataHtml);
+                .replace('{{DATA}}', apiStatusHtml + dataHtml);
 
             return new Response(responseHtml, {
                 headers: {
@@ -117,12 +198,14 @@ export default {
         
         try {
             const useBark = env.UseBark.toLowerCase() === 'true';
-            const GoogleAPIKey = env.GoogleAPIKey;
+            const availableKeys = getAvailableAPIKeys(env);
             
-            if (!GoogleAPIKey) {
-                console.error('GoogleAPIKey is required');
+            if (availableKeys.length === 0) {
+                console.error('No API keys available');
                 return;
             }
+
+            console.log(`Available API keys: ${availableKeys.length}`);
 
             // 检查重复邮件
             const existing = await env.DB.prepare(
@@ -154,9 +237,9 @@ export default {
   Email content: ${rawEmail}.
 
   Please replace the raw email content in place of [Insert raw email content here]. Please read the email and extract the following information:
-1. Extract **only** the verification code whose purpose is explicitly for **logging in / signing in** (look for nearby phrases such as “login code”, “sign-in code”, “one-time sign-in code”, “use XYZ to log in”, etc.).  
-   - **Ignore** any codes related to password reset, password change, account recovery, unlock requests, 2-factor codes for password resets, or other non-login purposes (these typically appear near words like “reset your password”, “change password”, “password assistance”, “recover account”, “unlock”, “安全验证（修改密码）” etc.).  
-   - If multiple codes exist, return only the one that matches the login criterion; if none match, treat as “no code”.
+1. Extract **only** the verification code whose purpose is explicitly for **logging in / signing in** (look for nearby phrases such as "login code", "sign-in code", "one-time sign-in code", "use XYZ to log in", etc.).  
+   - **Ignore** any codes related to password reset, password change, account recovery, unlock requests, 2-factor codes for password resets, or other non-login purposes (these typically appear near words like "reset your password", "change password", "password assistance", "recover account", "unlock", "安全验证（修改密码）" etc.).  
+   - If multiple codes exist, return only the one that matches the login criterion; if none match, treat as "no code".
 2. Extract ONLY the email address part:
    - FIRST try to find the Resent-From field in email headers. If found and it's in format "Name <email@example.com>", extract ONLY "email@example.com".
    - If NO Resent-From field exists, then use the From field and extract ONLY the email address part.
@@ -186,30 +269,8 @@ If there is no login verification code, clickable link, or this is an advertisem
 
                 while (retryCount < maxRetries && !extractedData) {
                     try {
-                        const aiResponse = await fetch(
-                            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GoogleAPIKey}`,
-                            {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({
-                                    "contents": [
-                                        {
-                                            "parts": [
-                                                {"text": aiPrompt}
-                                            ]
-                                        }
-                                    ]
-                                })
-                            }
-                        );
-
-                        if (!aiResponse.ok) {
-                            throw new Error(`AI API error: ${aiResponse.status} ${aiResponse.statusText}`);
-                        }
-
-                        const aiData = await aiResponse.json();
+                        // 使用 API 轮换调用
+                        const aiData = await callAIWithRotation(aiPrompt, env);
                         console.log(`AI response attempt ${retryCount + 1}:`, aiData);
 
                         if (
@@ -318,7 +379,7 @@ If there is no login verification code, clickable link, or this is an advertisem
 
                         // 记录处理时间
                         const processingTime = Date.now() - startTime;
-                        console.log(`Email processed successfully in ${processingTime}ms`);
+                        console.log(`Email processed successfully in ${processingTime}ms with ${availableKeys.length} API keys available`);
                     } else {
                         console.log("No login verification code found in this email.");
                     }
