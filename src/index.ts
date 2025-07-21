@@ -151,18 +151,6 @@ export default {
                 </tr>`;
             }
             
-            // 获取API密钥信息用于显示
-            const availableKeys = getAvailableAPIKeys(env);
-            const totalDailyQuota = availableKeys.length * 50; // 每个 key 50次/天
-            
-            // API状态显示
-            const apiStatusHtml = `
-                <div style="margin: 20px 0; padding: 10px; background: #e3f2fd; border-radius: 5px;">
-                    🔑 可用API密钥: ${availableKeys.length} 个 (总配额: ${totalDailyQuota} 次/天)
-                    <br>📊 轮换状态: ${availableKeys.length > 1 ? '已启用自动轮换' : '单密钥模式'}
-                </div>
-            `;
-            
             // 如果没有数据，显示提示
             if (results.length === 0) {
                 dataHtml = `<tr><td colspan="4" style="text-align: center; padding: 40px; color: #6c757d;">
@@ -179,7 +167,7 @@ export default {
                         <th>🕐 发送时间（美区）</th>
                     </tr>
                 `)
-                .replace('{{DATA}}', apiStatusHtml + dataHtml);
+                .replace('{{DATA}}', dataHtml);
 
             return new Response(responseHtml, {
                 headers: {
