@@ -4,7 +4,7 @@ This is the main file for the Auth Inbox Email Worker.
 created by: github@TooonyChen
 created on: 2024 Oct 07
 Last updated: 2024 Dec (Core version)
-Enhanced: 2025 Jan (API Rotation)
+Enhanced: 2025 Jan (API Rotation + OpenAI Backup)
 */
 
 import indexHtml from './index.html';
@@ -18,6 +18,7 @@ export interface Env {
     GoogleAPIKey3?: string;  // 第三个 API Key（可选）
     GoogleAPIKey4?: string;  // 第四个 API Key（可选）
     GoogleAPIKey5?: string;  // 第五个 API Key（可选）
+    OpenAIAPIKey?: string;   // OpenAI API Key（可选，作为备份）
     UseBark: string;
 }
 
@@ -45,7 +46,7 @@ function getTimeRemaining(createdAt: string): string {
     return `<span style="color: green;">剩余 ${remaining} 分钟</span>`;
 }
 
-// 获取可用的 API Keys
+// 获取可用的 Google API Keys
 function getAvailableAPIKeys(env: Env): string[] {
     const keys = [];
     if (env.GoogleAPIKey) keys.push(env.GoogleAPIKey);
@@ -63,66 +64,128 @@ function getNextKeyIndex(totalKeys: number): number {
     return minutesSinceEpoch % totalKeys;
 }
 
+// 调用 OpenAI API
+async function callOpenAI(prompt: string, apiKey: string): Promise<any> {
+    console.log('🔄 Trying OpenAI API as backup...');
+    
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            model: 'gpt-3.5-turbo',
+            messages: [
+                {
+                    role: 'user',
+                    content: prompt
+                }
+            ],
+            temperature: 0.1,
+            max_tokens: 1000
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ OpenAI API succeeded');
+    
+    // 转换 OpenAI 响应格式以匹配现有的处理逻辑
+    return {
+        candidates: [{
+            content: {
+                parts: [{
+                    text: data.choices[0].message.content
+                }]
+            }
+        }]
+    };
+}
+
 // 轮流调用 AI API（每次都轮换，不是失败才切换）
 async function callAIWithRoundRobin(prompt: string, env: Env): Promise<any> {
     const apiKeys = getAvailableAPIKeys(env);
     
-    if (apiKeys.length === 0) {
+    if (apiKeys.length === 0 && !env.OpenAIAPIKey) {
         throw new Error('No API keys available');
     }
     
-    // 获取本次要使用的key索引（基于时间）
-    const keyIndex = getNextKeyIndex(apiKeys.length);
-    const currentKey = apiKeys[keyIndex];
-    
-    console.log(`Using API key ${keyIndex + 1}/${apiKeys.length} (round-robin)`);
-    
-    try {
-        const aiResponse = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${currentKey}`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    "contents": [
-                        {
-                            "parts": [
-                                {"text": prompt}
-                            ]
-                        }
-                    ]
-                })
-            }
-        );
+    // 如果有 Google API keys，优先使用它们
+    if (apiKeys.length > 0) {
+        // 获取本次要使用的key索引（基于时间）
+        const keyIndex = getNextKeyIndex(apiKeys.length);
+        const currentKey = apiKeys[keyIndex];
+        
+        console.log(`Using Google API key ${keyIndex + 1}/${apiKeys.length} (round-robin)`);
+        
+        try {
+            const aiResponse = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${currentKey}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        "contents": [
+                            {
+                                "parts": [
+                                    {"text": prompt}
+                                ]
+                            }
+                        ]
+                    })
+                }
+            );
 
-        if (aiResponse.ok) {
-            console.log(`✅ API key ${keyIndex + 1} succeeded`);
-            return await aiResponse.json();
-        } else if (aiResponse.status === 429) {
-            console.log(`❌ API key ${keyIndex + 1} quota exceeded (429), trying other keys`);
-            // 如果当前key配额用完，尝试其他key
-            return await tryOtherKeys(prompt, apiKeys, keyIndex);
-        } else {
-            throw new Error(`API error: ${aiResponse.status} ${aiResponse.statusText}`);
+            if (aiResponse.ok) {
+                console.log(`✅ Google API key ${keyIndex + 1} succeeded`);
+                return await aiResponse.json();
+            } else if (aiResponse.status === 429) {
+                console.log(`❌ Google API key ${keyIndex + 1} quota exceeded (429), trying other keys`);
+                // 如果当前key配额用完，尝试其他key
+                const result = await tryOtherGoogleKeys(prompt, apiKeys, keyIndex);
+                if (result) return result;
+                // 如果所有 Google keys 都失败，尝试 OpenAI
+                throw new Error('All Google API keys failed');
+            } else {
+                throw new Error(`Google API error: ${aiResponse.status} ${aiResponse.statusText}`);
+            }
+        } catch (error) {
+            console.error(`Google API key ${keyIndex + 1} failed:`, error);
+            // 尝试其他 Google key 作为备用
+            try {
+                const result = await tryOtherGoogleKeys(prompt, apiKeys, keyIndex);
+                if (result) return result;
+            } catch (googleError) {
+                console.log('All Google API keys failed, trying OpenAI...');
+            }
+            // 如果所有 Google keys 都失败，尝试 OpenAI
+            throw new Error('All Google API keys failed');
         }
-    } catch (error) {
-        console.error(`API key ${keyIndex + 1} failed:`, error);
-        // 尝试其他key作为备用
-        return await tryOtherKeys(prompt, apiKeys, keyIndex);
     }
+    
+    // 如果没有 Google API keys 或所有 Google keys 都失败，使用 OpenAI
+    if (env.OpenAIAPIKey) {
+        return await callOpenAI(prompt, env.OpenAIAPIKey);
+    }
+    
+    throw new Error('All API keys failed');
 }
 
-// 当主要key失败时，尝试其他key
-async function tryOtherKeys(prompt: string, apiKeys: string[], excludeIndex: number): Promise<any> {
-    console.log('Trying backup keys...');
+// 当主要key失败时，尝试其他 Google key
+async function tryOtherGoogleKeys(prompt: string, apiKeys: string[], excludeIndex: number): Promise<any> {
+    console.log('Trying backup Google keys...');
     
     for (let i = 0; i < apiKeys.length; i++) {
         if (i === excludeIndex) continue; // 跳过已经失败的key
         
         const backupKey = apiKeys[i];
-        console.log(`Trying backup API key ${i + 1}/${apiKeys.length}`);
+        console.log(`Trying backup Google API key ${i + 1}/${apiKeys.length}`);
         
         try {
             const aiResponse = await fetch(
@@ -145,22 +208,22 @@ async function tryOtherKeys(prompt: string, apiKeys: string[], excludeIndex: num
             );
 
             if (aiResponse.ok) {
-                console.log(`✅ Backup API key ${i + 1} succeeded`);
+                console.log(`✅ Backup Google API key ${i + 1} succeeded`);
                 return await aiResponse.json();
             } else if (aiResponse.status === 429) {
-                console.log(`❌ Backup API key ${i + 1} also quota exceeded`);
+                console.log(`❌ Backup Google API key ${i + 1} also quota exceeded`);
                 continue;
             } else {
-                console.log(`❌ Backup API key ${i + 1} error: ${aiResponse.status}`);
+                console.log(`❌ Backup Google API key ${i + 1} error: ${aiResponse.status}`);
                 continue;
             }
         } catch (error) {
-            console.error(`Backup API key ${i + 1} failed:`, error);
+            console.error(`Backup Google API key ${i + 1} failed:`, error);
             continue;
         }
     }
     
-    throw new Error('All API keys failed');
+    return null; // 所有 Google keys 都失败
 }
 
 export default {
@@ -240,14 +303,15 @@ export default {
         
         try {
             const useBark = env.UseBark.toLowerCase() === 'true';
-            const availableKeys = getAvailableAPIKeys(env);
+            const availableGoogleKeys = getAvailableAPIKeys(env);
+            const hasOpenAI = !!env.OpenAIAPIKey;
             
-            if (availableKeys.length === 0) {
+            if (availableGoogleKeys.length === 0 && !hasOpenAI) {
                 console.error('No API keys available');
                 return;
             }
 
-            console.log(`Available API keys: ${availableKeys.length}`);
+            console.log(`Available Google API keys: ${availableGoogleKeys.length}, OpenAI: ${hasOpenAI ? 'Yes' : 'No'}`);
 
             // 检查重复邮件
             const existing = await env.DB.prepare(
@@ -311,7 +375,7 @@ If there is no login verification code, clickable link, or this is an advertisem
 
                 while (retryCount < maxRetries && !extractedData) {
                     try {
-                        // 使用轮流调用 AI API
+                        // 使用轮流调用 AI API（包括 OpenAI 备份）
                         const aiData = await callAIWithRoundRobin(aiPrompt, env);
                         console.log(`AI response attempt ${retryCount + 1}:`, aiData);
 
@@ -354,6 +418,39 @@ If there is no login verification code, clickable link, or this is an advertisem
                         }
                     } catch (error) {
                         console.error(`Attempt ${retryCount + 1} failed:`, error);
+                        
+                        // 如果是 Google API 失败，尝试 OpenAI
+                        if (retryCount === 0 && env.OpenAIAPIKey) {
+                            try {
+                                console.log('🔄 Trying OpenAI as fallback...');
+                                const aiData = await callOpenAI(aiPrompt, env.OpenAIAPIKey);
+                                
+                                if (
+                                    aiData &&
+                                    aiData.candidates &&
+                                    aiData.candidates[0] &&
+                                    aiData.candidates[0].content &&
+                                    aiData.candidates[0].content.parts &&
+                                    aiData.candidates[0].content.parts[0]
+                                ) {
+                                    let extractedText = aiData.candidates[0].content.parts[0].text;
+                                    
+                                    const jsonMatch = extractedText.match(/```json\s*([\s\S]*?)\s*```/);
+                                    if (jsonMatch && jsonMatch[1]) {
+                                        extractedText = jsonMatch[1].trim();
+                                    } else {
+                                        extractedText = extractedText.trim();
+                                    }
+
+                                    extractedData = JSON.parse(extractedText);
+                                    console.log(`OpenAI Parsed Data:`, extractedData);
+                                    break; // 成功，退出重试循环
+                                }
+                            } catch (openaiError) {
+                                console.error('OpenAI fallback failed:', openaiError);
+                            }
+                        }
+                        
                         if (retryCount < maxRetries - 1) {
                             // 简单延迟重试
                             await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
@@ -421,7 +518,7 @@ If there is no login verification code, clickable link, or this is an advertisem
 
                         // 记录处理时间
                         const processingTime = Date.now() - startTime;
-                        console.log(`Email processed successfully in ${processingTime}ms with ${availableKeys.length} API keys available`);
+                        console.log(`Email processed successfully in ${processingTime}ms with ${availableGoogleKeys.length} Google API keys + ${hasOpenAI ? '1' : '0'} OpenAI key available`);
                     } else {
                         console.log("No login verification code found in this email.");
                     }
