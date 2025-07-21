@@ -16,6 +16,8 @@ export interface Env {
     GoogleAPIKey: string;
     GoogleAPIKey2?: string;  // 第二个 API Key（可选）
     GoogleAPIKey3?: string;  // 第三个 API Key（可选）
+    GoogleAPIKey4?: string;  // 第四个 API Key（可选）
+    GoogleAPIKey5?: string;  // 第五个 API Key（可选）
     UseBark: string;
 }
 
@@ -49,25 +51,82 @@ function getAvailableAPIKeys(env: Env): string[] {
     if (env.GoogleAPIKey) keys.push(env.GoogleAPIKey);
     if (env.GoogleAPIKey2) keys.push(env.GoogleAPIKey2);
     if (env.GoogleAPIKey3) keys.push(env.GoogleAPIKey3);
+    if (env.GoogleAPIKey4) keys.push(env.GoogleAPIKey4);
+    if (env.GoogleAPIKey5) keys.push(env.GoogleAPIKey5);
     return keys;
 }
 
-// 轮换调用 AI API
-async function callAIWithRotation(prompt: string, env: Env): Promise<any> {
+// 获取下一个要使用的API Key索引（基于时间轮换，无需数据库表）
+function getNextKeyIndex(totalKeys: number): number {
+    // 使用当前时间戳进行轮换，每分钟切换一次
+    const minutesSinceEpoch = Math.floor(Date.now() / (1000 * 60));
+    return minutesSinceEpoch % totalKeys;
+}
+
+// 轮流调用 AI API（每次都轮换，不是失败才切换）
+async function callAIWithRoundRobin(prompt: string, env: Env): Promise<any> {
     const apiKeys = getAvailableAPIKeys(env);
     
     if (apiKeys.length === 0) {
         throw new Error('No API keys available');
     }
     
-    // 轮换使用不同的 API Key
+    // 获取本次要使用的key索引（基于时间）
+    const keyIndex = getNextKeyIndex(apiKeys.length);
+    const currentKey = apiKeys[keyIndex];
+    
+    console.log(`Using API key ${keyIndex + 1}/${apiKeys.length} (round-robin)`);
+    
+    try {
+        const aiResponse = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${currentKey}`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    "contents": [
+                        {
+                            "parts": [
+                                {"text": prompt}
+                            ]
+                        }
+                    ]
+                })
+            }
+        );
+
+        if (aiResponse.ok) {
+            console.log(`✅ API key ${keyIndex + 1} succeeded`);
+            return await aiResponse.json();
+        } else if (aiResponse.status === 429) {
+            console.log(`❌ API key ${keyIndex + 1} quota exceeded (429), trying other keys`);
+            // 如果当前key配额用完，尝试其他key
+            return await tryOtherKeys(prompt, apiKeys, keyIndex);
+        } else {
+            throw new Error(`API error: ${aiResponse.status} ${aiResponse.statusText}`);
+        }
+    } catch (error) {
+        console.error(`API key ${keyIndex + 1} failed:`, error);
+        // 尝试其他key作为备用
+        return await tryOtherKeys(prompt, apiKeys, keyIndex);
+    }
+}
+
+// 当主要key失败时，尝试其他key
+async function tryOtherKeys(prompt: string, apiKeys: string[], excludeIndex: number): Promise<any> {
+    console.log('Trying backup keys...');
+    
     for (let i = 0; i < apiKeys.length; i++) {
-        const currentKey = apiKeys[i];
-        console.log(`Trying API key ${i + 1}/${apiKeys.length}`);
+        if (i === excludeIndex) continue; // 跳过已经失败的key
+        
+        const backupKey = apiKeys[i];
+        console.log(`Trying backup API key ${i + 1}/${apiKeys.length}`);
         
         try {
             const aiResponse = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${currentKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${backupKey}`,
                 {
                     method: 'POST',
                     headers: {
@@ -86,23 +145,18 @@ async function callAIWithRotation(prompt: string, env: Env): Promise<any> {
             );
 
             if (aiResponse.ok) {
-                console.log(`✅ API key ${i + 1} succeeded`);
+                console.log(`✅ Backup API key ${i + 1} succeeded`);
                 return await aiResponse.json();
             } else if (aiResponse.status === 429) {
-                // 配额用完，尝试下一个 key
-                console.log(`❌ API key ${i + 1} quota exceeded (429), trying next key`);
+                console.log(`❌ Backup API key ${i + 1} also quota exceeded`);
                 continue;
             } else {
-                throw new Error(`API error: ${aiResponse.status} ${aiResponse.statusText}`);
+                console.log(`❌ Backup API key ${i + 1} error: ${aiResponse.status}`);
+                continue;
             }
         } catch (error) {
-            console.error(`API key ${i + 1} failed:`, error);
-            
-            // 如果是最后一个 key，抛出错误
-            if (i === apiKeys.length - 1) {
-                throw error;
-            }
-            // 否则继续尝试下一个 key
+            console.error(`Backup API key ${i + 1} failed:`, error);
+            continue;
         }
     }
     
@@ -257,8 +311,8 @@ If there is no login verification code, clickable link, or this is an advertisem
 
                 while (retryCount < maxRetries && !extractedData) {
                     try {
-                        // 使用 API 轮换调用
-                        const aiData = await callAIWithRotation(aiPrompt, env);
+                        // 使用轮流调用 AI API
+                        const aiData = await callAIWithRoundRobin(aiPrompt, env);
                         console.log(`AI response attempt ${retryCount + 1}:`, aiData);
 
                         if (
