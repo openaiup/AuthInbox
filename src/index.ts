@@ -342,15 +342,24 @@ export default {
             const aiPrompt = `
   Email content: ${rawEmail}.
   Please replace the raw email content in place of [Insert raw email content here]. Please read the email and extract the following information:
-1. Extract the code from the email (if available) - BUT STRICTLY EXCLUDE codes from password reset/change emails:
-   - **CRITICAL**: If email subject/title contains ANY of these terms, DO NOT extract any code: "密码重置", "密码修改", "重置密码", "更改密码", "password reset", "reset password", "change password", "modify password"
-   - **CRITICAL**: If email content mentions "密码重置验证码", "重置验证码", "password reset code", DO NOT extract any code
-   - **CRITICAL**: If email subject follows pattern like "您的 ChatGPT 密码重置验证码为 [任何数字]" or similar password reset patterns, result in codeExist: 0
-   - ONLY extract codes for login/sign-in verification purposes, NOT for password operations
+
+FIRST: Check if this is a password-related email by looking for these keywords in subject OR content:
+- Chinese: "密码重置", "密码修改", "重置密码", "更改密码", "找回密码"  
+- English: "password reset", "reset password", "change password", "modify password", "recover password"
+
+IF ANY of these keywords are found, IMMEDIATELY return:
+{
+  "codeExist": 0
+}
+
+ONLY IF NO password-related keywords found, then proceed:
+
+1. Extract the code from the email (if available).
 2. Extract ONLY the email address part:
    - FIRST try to find the Resent-From field in email headers. If found and it's in format "Name <email@example.com>", extract ONLY "email@example.com".
    - If NO Resent-From field exists, then use the From field and extract ONLY the email address part.
 3. Provide a brief summary of the email's topic (e.g., "account verification").
+
 Format the output as JSON with this structure:
 {
   "title": "The extracted email address ONLY, without any name or angle brackets (e.g., 'sender@example.com')",
@@ -358,9 +367,11 @@ Format the output as JSON with this structure:
   "topic": "A brief summary of the email's topic (e.g., 'account verification')",
   "codeExist": 1
 }
+
 If both a code and a link are present, only display the code in the 'code' field, like this:
 "code": "code"
-If there is no code, clickable link, this is an advertisement email, OR this is a password reset/change email (any email with subject containing password reset keywords), return:
+
+If there is no code, clickable link, or this is an advertisement email, return:
 {
   "codeExist": 0
 }
