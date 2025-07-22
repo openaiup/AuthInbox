@@ -75,7 +75,7 @@ async function callOpenAI(prompt: string, apiKey: string): Promise<any> {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            model: 'gpt-4o',
+            model: 'gpt-3.5-turbo',
             messages: [
                 {
                     role: 'user',
@@ -342,17 +342,27 @@ export default {
             const aiPrompt = `
 Email content: ${rawEmail}.
 
-STEP 1 - EMAIL TYPE DETECTION (MUST CHECK FIRST):
-Scan the ENTIRE email (subject, headers, and body) to determine if this is a PASSWORD RESET email.
-Password reset indicators include:
-- Subject or body contains: "password reset", "reset password", "password recovery"
-- Subject or body contains: "密码重置", "重置密码", "密码恢复"
-- Subject contains encoded Chinese: "=E5=AF=86=E7=A0=81=E9=87=8D=E7=BD=AE"
-- Body mentions: "reset your password", "change your password", "password assistance"
-- Body contains: "如果您未尝试重置密码", "未尝试重置密码请忽略"
+**CRITICAL FIRST STEP - EMAIL TYPE CLASSIFICATION:**
 
-IF this is a password reset email → Return {"codeExist": 0} and STOP.
-IF this is NOT a password reset email → Continue.
+Analyze the email and classify it as either:
+- Type A: LOGIN/SIGN-IN verification email
+- Type B: PASSWORD RESET email
+- Type C: Other (advertisement, notification, etc.)
+
+Classification criteria:
+TYPE B (PASSWORD RESET) - If ANY of these appear:
+- Subject contains: "password reset" | "密码重置" | "=E5=AF=86=E7=A0=81=E9=87=8D=E7=BD=AE"
+- Body contains: "reset your password" | "重置密码" | "password recovery"
+- Body contains: "如果您未尝试重置密码" | "change your password"
+
+TYPE A (LOGIN) - If ALL of these conditions are met:
+- No password reset indicators found
+- Contains phrases: "log-in code" | "sign-in code" | "suspicious log-in"
+- Has a 6-digit verification code
+
+→ If Type B detected: IMMEDIATELY return {"codeExist": 0}
+→ If Type A detected: Continue to extraction
+→ If Type C detected: Return {"codeExist": 0}
 
 Please replace the raw email content in place of [Insert raw email content here]. Please read the email and extract the following information:
 1. Extract **only** the verification code whose purpose is explicitly for **logging in / signing in** (look for nearby phrases such as "login code", "sign-in code", "one-time sign-in code", "use XYZ to log in", "log-in code", "suspicious log-in", etc.).  
@@ -376,7 +386,7 @@ If there is no login verification code, clickable link, or this is an advertisem
   "codeExist": 0
 }
 `;
-			
+
             try {
                 const maxRetries = 3;
                 let retryCount = 0;
@@ -474,36 +484,6 @@ If there is no login verification code, clickable link, or this is an advertisem
                     }
                 }
 
-                // 后处理过滤器 - 双重检查密码重置相关内容
-                if (extractedData && extractedData.codeExist === 1) {
-                    // 密码重置相关的关键词列表（中英文）
-                    const passwordResetKeywords = [
-                        'password reset', 'reset password', 'forgot password', 
-                        'password recovery', 'recover password', 'change password',
-                        'new password', 'reset your password', 'password assistance',
-                        'password change', 'update password', 'modify password',
-                        '密码重置', '重置密码', '忘记密码', '找回密码', '修改密码',
-                        '更改密码', '密码找回', '密码恢复', '重设密码', '密码更新'
-                    ];
-                    
-                    // 检查 topic, title 或 code 中是否包含密码重置相关的关键词
-                    const topicLower = (extractedData.topic || '').toLowerCase();
-                    const titleLower = (extractedData.title || '').toLowerCase();
-                    const codeLower = (extractedData.code || '').toLowerCase();
-                    
-                    const isPasswordReset = passwordResetKeywords.some(keyword => 
-                        topicLower.includes(keyword.toLowerCase()) || 
-                        titleLower.includes(keyword.toLowerCase()) ||
-                        codeLower.includes(keyword.toLowerCase())
-                    );
-                    
-                    if (isPasswordReset) {
-                        console.log("Password reset email detected in post-processing, filtering out");
-                        console.log(`Topic: ${extractedData.topic}, Title: ${extractedData.title}`);
-                        extractedData.codeExist = 0;
-                    }
-                }
-
                 if (extractedData) {
                     if (extractedData.codeExist === 1) {
                         const title = extractedData.title || "Unknown Organization";
@@ -559,7 +539,7 @@ If there is no login verification code, clickable link, or this is an advertisem
                         const processingTime = Date.now() - startTime;
                         console.log(`Email processed successfully in ${processingTime}ms with ${availableGoogleKeys.length} Google API keys + ${hasOpenAI ? '1' : '0'} OpenAI key available`);
                     } else {
-                        console.log("No login verification code found in this email (or password reset email filtered).");
+                        console.log("No login verification code found in this email.");
                     }
                 } else {
                     console.error("Failed to extract data from AI response after retries.");
