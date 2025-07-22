@@ -342,14 +342,11 @@ export default {
             const aiPrompt = `
   Email content: ${rawEmail}.
   Please replace the raw email content in place of [Insert raw email content here]. Please read the email and extract the following information:
-
-FIRST: If email subject or content contains "密码重置" or "password reset", immediately return:
-{
-  "codeExist": 0
-}
-
-OTHERWISE proceed with:
-1. Extract the code from the email (if available).
+1. Extract the code from the email (if available). 
+   IMPORTANT: ONLY extract codes for login/signin/authentication purposes.
+   DO NOT extract codes for password reset, password recovery, forgot password, or account recovery.
+   Look for keywords like "sign in", "log in", "login", "authentication", "verify your identity" to identify login codes.
+   Ignore codes with keywords like "reset", "forgot", "recovery", "change password", "new password".
 2. Extract ONLY the email address part:
    - FIRST try to find the Resent-From field in email headers. If found and it's in format "Name <email@example.com>", extract ONLY "email@example.com".
    - If NO Resent-From field exists, then use the From field and extract ONLY the email address part.
@@ -363,7 +360,7 @@ Format the output as JSON with this structure:
 }
 If both a code and a link are present, only display the code in the 'code' field, like this:
 "code": "code"
-If there is no code, clickable link, or this is an advertisement email, return:
+If there is no code, clickable link, this is an advertisement email, OR this is a password reset/recovery email, return:
 {
   "codeExist": 0
 }
