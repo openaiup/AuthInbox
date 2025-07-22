@@ -340,34 +340,43 @@ export default {
 
             // 改进的 AI 提示词
             const aiPrompt = `
-  Email content: ${rawEmail}.
+Analyze the following email content and extract information:
 
-  Please replace the raw email content in place of [Insert raw email content here]. Please read the email and extract the following information:
-1. Extract **only** the verification code whose purpose is explicitly for **logging in / signing in** (look for nearby phrases such as "login code", "sign-in code", "one-time sign-in code", "use XYZ to log in", etc.).  
-   - **Ignore** any codes related to password reset, password change, account recovery, unlock requests, 2-factor codes for password resets, or other non-login purposes (these typically appear near words like "reset your password", "change password", "password assistance", "recover account", "unlock", "安全验证（修改密码）" etc.).  
-   - If multiple codes exist, return only the one that matches the login criterion; if none match, treat as "no code".
-2. Extract ONLY the email address part:
-   - FIRST try to find the Resent-From field in email headers. If found and it's in format "Name <email@example.com>", extract ONLY "email@example.com".
-   - If NO Resent-From field exists, then use the From field and extract ONLY the email address part.
-3. Provide a brief summary of the email's topic (e.g., "account login verification").
+Email content: ${rawEmail}
 
-Format the output as JSON with this structure:
+Please extract the following information:
+
+1. Extract **only** the verification code whose purpose is explicitly for **logging in / signing in**:
+   - **Include keywords**: "login code", "sign-in code", "verification code", "access code", "authentication code", "登录验证码", "登录码", "验证码" (when used for login context)
+   - **Strictly exclude**: Any codes related to password reset/change/recovery (identified by keywords like "password reset", "reset password", "change password", "recover password", "unlock account", "密码重置", "密码修改", "重置密码", "找回密码", "解锁账户")
+   - **Subject line check**: If email subject contains password reset keywords, return no code regardless of content
+   - **Verification code format**: Must be 4-8 characters (numbers/letters combination)
+   - If multiple codes exist, return only the login-specific one; if none match login criteria, return no code
+
+2. Extract sender email address with priority order:
+   - **Priority 1**: Look for "From:" or "发件人:" followed by email address in email body (indicating forwarded original sender)
+   - **Priority 2**: Extract from "Resent-From" header field, format: "Name <email@example.com>" → extract only "email@example.com"
+   - **Priority 3**: Extract from "From" header field, remove name and brackets, keep only email address
+   - **Fallback**: If extraction fails, return "unknown@email.com"
+
+3. Provide brief topic summary in English.
+
+**Output format** (strict JSON):
 {
-  "title": "The extracted email address ONLY, without any name or angle brackets (e.g., 'sender@example.com')",
-  "code": "Extracted login verification code (e.g., '123456')",
-  "topic": "A brief summary of the email's topic (e.g., 'account login verification')",
+  "title": "sender_email_address_only",
+  "code": "extracted_login_verification_code", 
+  "topic": "brief_email_topic_summary",
   "codeExist": 1
 }
 
-If both a login code and a link are present, only display the login verification code in the 'code' field, like this:
-"code": "123456"
-
-If there is no login verification code, clickable link, or this is an advertisement email, return:
+**Return this if no login verification code found, or if password reset email, or advertisement:**
 {
   "codeExist": 0
 }
-`;
 
+**Important**: Only return valid JSON format. Do not include any explanatory text outside the JSON structure.
+`;
+			
             try {
                 const maxRetries = 3;
                 let retryCount = 0;
