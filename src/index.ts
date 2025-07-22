@@ -340,11 +340,23 @@ export default {
 
             // 改进的 AI 提示词
             const aiPrompt = `
-  Email content: ${rawEmail}.
-  Please replace the raw email content in place of [Insert raw email content here]. Please read the email and extract the following information:
+Email content: ${rawEmail}.
+
+STEP 1 - EMAIL TYPE DETECTION (MUST CHECK FIRST):
+Scan the ENTIRE email (subject, headers, and body) to determine if this is a PASSWORD RESET email.
+Password reset indicators include:
+- Subject or body contains: "password reset", "reset password", "password recovery"
+- Subject or body contains: "密码重置", "重置密码", "密码恢复"
+- Subject contains encoded Chinese: "=E5=AF=86=E7=A0=81=E9=87=8D=E7=BD=AE"
+- Body mentions: "reset your password", "change your password", "password assistance"
+- Body contains: "如果您未尝试重置密码", "未尝试重置密码请忽略"
+
+IF this is a password reset email → Return {"codeExist": 0} and STOP.
+IF this is NOT a password reset email → Continue.
+
+Please replace the raw email content in place of [Insert raw email content here]. Please read the email and extract the following information:
 1. Extract **only** the verification code whose purpose is explicitly for **logging in / signing in** (look for nearby phrases such as "login code", "sign-in code", "one-time sign-in code", "use XYZ to log in", "log-in code", "suspicious log-in", etc.).  
-   - **CRITICAL**: Check the email Subject line - if it contains "password reset", "密码重置", "=E5=AF=86=E7=A0=81=E9=87=8D=E7=BD=AE" (UTF-8 encoded for 密码重置), or similar password reset indicators, IMMEDIATELY return codeExist: 0.
-   - **Ignore** any codes related to password reset, password change, account recovery, unlock requests, 2-factor codes for password resets, or other non-login purposes (these typically appear near words like "reset your password", "change password", "password assistance", "recover account", "unlock", "安全验证（修改密码）", "密码重置验证码", "未尝试重置密码", etc.).  
+   - **Ignore** any codes related to password reset, password change, account recovery, unlock requests, 2-factor codes for password resets, or other non-login purposes (these typically appear near words like "reset your password", "change password", "password assistance", "recover account", "unlock", "安全验证（修改密码）" etc.).  
    - If multiple codes exist, return only the one that matches the login criterion; if none match, treat as "no code".
 2. Extract ONLY the email address part:
    - FIRST try to find the Resent-From field in email headers. If found and it's in format "Name <email@example.com>", extract ONLY "email@example.com".
