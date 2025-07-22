@@ -75,7 +75,7 @@ async function callOpenAI(prompt: string, apiKey: string): Promise<any> {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            model: 'gpt-3.5-turbo',
+            model: 'gpt-4o',
             messages: [
                 {
                     role: 'user',
@@ -342,13 +342,18 @@ export default {
             const aiPrompt = `
   Email content: ${rawEmail}.
   Please replace the raw email content in place of [Insert raw email content here]. Please read the email and extract the following information:
+
+CRITICAL RULES:
+- If the email contains ANY of these keywords/phrases: "password reset", "reset password", "forgot password", "password recovery", "recover password", "change password", "new password", "reset your password", "password assistance", "密码重置", "重置密码", "忘记密码", "找回密码", "修改密码" - IMMEDIATELY return {"codeExist": 0}
+- ONLY extract verification codes that are for LOGIN or SIGN-IN purposes
+- Look for positive indicators like: "sign in", "log in", "login", "authentication", "verify your identity", "登录", "登入", "身份验证"
+
 1. Extract the code from the email (if available).
-   IMPORTANT: ONLY extract codes for login/signin/authentication purposes.
-   DO NOT extract codes for password reset, password recovery, forgot password, or account recovery.
 2. Extract ONLY the email address part:
    - FIRST try to find the Resent-From field in email headers. If found and it's in format "Name <email@example.com>", extract ONLY "email@example.com".
    - If NO Resent-From field exists, then use the From field and extract ONLY the email address part.
 3. Provide a brief summary of the email's topic (e.g., "account verification").
+
 Format the output as JSON with this structure:
 {
   "title": "The extracted email address ONLY, without any name or angle brackets (e.g., 'sender@example.com')",
@@ -356,9 +361,11 @@ Format the output as JSON with this structure:
   "topic": "A brief summary of the email's topic (e.g., 'account verification')",
   "codeExist": 1
 }
+
 If both a code and a link are present, only display the code in the 'code' field, like this:
 "code": "code"
-If there is no code, clickable link, or this is an advertisement email, return:
+
+If there is no code, clickable link, this is an advertisement email, OR if this is related to password reset/recovery in ANY way, return:
 {
   "codeExist": 0
 }
@@ -461,6 +468,36 @@ If there is no code, clickable link, or this is an advertisement email, return:
                     }
                 }
 
+                // 后处理过滤器 - 双重检查密码重置相关内容
+                if (extractedData && extractedData.codeExist === 1) {
+                    // 密码重置相关的关键词列表（中英文）
+                    const passwordResetKeywords = [
+                        'password reset', 'reset password', 'forgot password', 
+                        'password recovery', 'recover password', 'change password',
+                        'new password', 'reset your password', 'password assistance',
+                        'password change', 'update password', 'modify password',
+                        '密码重置', '重置密码', '忘记密码', '找回密码', '修改密码',
+                        '更改密码', '密码找回', '密码恢复', '重设密码', '密码更新'
+                    ];
+                    
+                    // 检查 topic, title 或 code 中是否包含密码重置相关的关键词
+                    const topicLower = (extractedData.topic || '').toLowerCase();
+                    const titleLower = (extractedData.title || '').toLowerCase();
+                    const codeLower = (extractedData.code || '').toLowerCase();
+                    
+                    const isPasswordReset = passwordResetKeywords.some(keyword => 
+                        topicLower.includes(keyword.toLowerCase()) || 
+                        titleLower.includes(keyword.toLowerCase()) ||
+                        codeLower.includes(keyword.toLowerCase())
+                    );
+                    
+                    if (isPasswordReset) {
+                        console.log("Password reset email detected in post-processing, filtering out");
+                        console.log(`Topic: ${extractedData.topic}, Title: ${extractedData.title}`);
+                        extractedData.codeExist = 0;
+                    }
+                }
+
                 if (extractedData) {
                     if (extractedData.codeExist === 1) {
                         const title = extractedData.title || "Unknown Organization";
@@ -516,7 +553,7 @@ If there is no code, clickable link, or this is an advertisement email, return:
                         const processingTime = Date.now() - startTime;
                         console.log(`Email processed successfully in ${processingTime}ms with ${availableGoogleKeys.length} Google API keys + ${hasOpenAI ? '1' : '0'} OpenAI key available`);
                     } else {
-                        console.log("No login verification code found in this email.");
+                        console.log("No login verification code found in this email (or password reset email filtered).");
                     }
                 } else {
                     console.error("Failed to extract data from AI response after retries.");
