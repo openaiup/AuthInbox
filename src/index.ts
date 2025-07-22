@@ -346,35 +346,34 @@ Email content: ${rawEmail}
 
 Please extract the following information:
 
-1. Extract **only** the verification code whose purpose is explicitly for **logging in / signing in**:
-   - **Include keywords**: "login code", "sign-in code", "verification code", "access code", "authentication code", "登录验证码", "登录码", "验证码" (when used for login context)
-   - **Strictly exclude**: Any codes related to password reset/change/recovery (identified by keywords like "password reset", "reset password", "change password", "recover password", "unlock account", "密码重置", "密码修改", "重置密码", "找回密码", "解锁账户")
-   - **Subject line check**: If email subject contains password reset keywords, return no code regardless of content
-   - **Verification code format**: Must be 4-8 characters (numbers/letters combination)
-   - If multiple codes exist, return only the login-specific one; if none match login criteria, return no code
+1. **Verification code extraction rules**:
+   - **IMMEDIATELY REJECT** if email subject OR content contains ANY of these keywords: "password reset", "reset password", "change password", "modify password", "recover password", "unlock account", "密码重置", "密码修改", "重置密码", "更改密码", "找回密码", "解锁账户", "找回账号"
+   - **IMMEDIATELY REJECT** if content contains phrases like: "enter this temporary verification code to continue", "输入此临时验证码以继续", "临时验证码", "重置验证码"
+   - **ONLY ACCEPT** codes explicitly for login/sign-in with clear context like: "login verification code", "sign in code", "access verification", "登录验证码", "登录码"
+   - Verification code format: 4-8 characters (numbers/letters)
 
-2. Extract sender email address with priority order:
-   - **Priority 1**: Look for "From:" or "发件人:" followed by email address in email body (indicating forwarded original sender)
-   - **Priority 2**: Extract from "Resent-From" header field, format: "Name <email@example.com>" → extract only "email@example.com"
-   - **Priority 3**: Extract from "From" header field, remove name and brackets, keep only email address
-   - **Fallback**: If extraction fails, return "unknown@email.com"
+2. **Sender email extraction (FORWARDED EMAIL PRIORITY)**:
+   - **Priority 1**: Extract from the immediate sender of the forwarded email (the person who forwarded it to you) - this should be in the email headers "From:" field
+   - **Priority 2**: If no clear forwarded sender, extract from "Resent-From" header
+   - **Priority 3**: Extract from main "From" header field
+   - **Format**: Remove all names, brackets, quotes - return ONLY the email address part (e.g., "user@domain.com")
 
 3. Provide brief topic summary in English.
 
-**Output format** (strict JSON):
-{
-  "title": "sender_email_address_only",
-  "code": "extracted_login_verification_code", 
-  "topic": "brief_email_topic_summary",
-  "codeExist": 1
-}
-
-**Return this if no login verification code found, or if password reset email, or advertisement:**
+**CRITICAL**: If this email is about password reset/change in ANY way, immediately return:
 {
   "codeExist": 0
 }
 
-**Important**: Only return valid JSON format. Do not include any explanatory text outside the JSON structure.
+**For valid login verification emails only**:
+{
+  "title": "forwarded_sender_email_only",
+  "code": "login_verification_code_only", 
+  "topic": "login verification email",
+  "codeExist": 1
+}
+
+**Do not extract codes from password-related emails under any circumstances.**
 `;
 			
             try {
