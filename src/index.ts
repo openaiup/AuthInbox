@@ -342,38 +342,24 @@ export default {
             const aiPrompt = `
   Email content: ${rawEmail}.
   Please replace the raw email content in place of [Insert raw email content here]. Please read the email and extract the following information:
-
-CRITICAL RULES FOR FILTERING:
-- Check the email subject line. If it contains ANY of these patterns, IMMEDIATELY return {"codeExist": 0}:
-  * "密码重置验证码" (password reset verification code)
-  * Subject containing both "密码" and "重置"
-  * "password reset" in subject
-- Also check email body for these EXACT phrases and return {"codeExist": 0} if found:
-  * "输入此临时验证码以继续" followed by "如果您未尝试重置密码"
-  * "密码重置" in the body
-- ONLY extract codes that are for LOGIN purposes, indicated by:
-  * "Your ChatGPT code is" in subject (login code)
-  * "suspicious log-in" or "log in" in body
-  * "登录验证码" or similar login-related terms
-
-1. Extract the code from the email (if available).
+1. Extract **only** the verification code whose purpose is explicitly for **logging in / signing in** (look for nearby phrases such as "login code", "sign-in code", "one-time sign-in code", "use XYZ to log in", "log-in code", "suspicious log-in", etc.).  
+   - **CRITICAL**: Check the email Subject line - if it contains "password reset", "密码重置", "=E5=AF=86=E7=A0=81=E9=87=8D=E7=BD=AE" (UTF-8 encoded for 密码重置), or similar password reset indicators, IMMEDIATELY return codeExist: 0.
+   - **Ignore** any codes related to password reset, password change, account recovery, unlock requests, 2-factor codes for password resets, or other non-login purposes (these typically appear near words like "reset your password", "change password", "password assistance", "recover account", "unlock", "安全验证（修改密码）", "密码重置验证码", "未尝试重置密码", etc.).  
+   - If multiple codes exist, return only the one that matches the login criterion; if none match, treat as "no code".
 2. Extract ONLY the email address part:
    - FIRST try to find the Resent-From field in email headers. If found and it's in format "Name <email@example.com>", extract ONLY "email@example.com".
    - If NO Resent-From field exists, then use the From field and extract ONLY the email address part.
-3. Provide a brief summary of the email's topic (e.g., "account verification").
-
+3. Provide a brief summary of the email's topic (e.g., "account login verification").
 Format the output as JSON with this structure:
 {
   "title": "The extracted email address ONLY, without any name or angle brackets (e.g., 'sender@example.com')",
-  "code": "Extracted verification code (e.g., '123456')",
-  "topic": "A brief summary of the email's topic (e.g., 'account verification')",
+  "code": "Extracted login verification code (e.g., '123456')",
+  "topic": "A brief summary of the email's topic (e.g., 'account login verification')",
   "codeExist": 1
 }
-
-If both a code and a link are present, only display the code in the 'code' field, like this:
-"code": "code"
-
-If there is no code, clickable link, this is an advertisement email, OR if this is a password reset email, return:
+If both a login code and a link are present, only display the login verification code in the 'code' field, like this:
+"code": "123456"
+If there is no login verification code, clickable link, or this is an advertisement email, return:
 {
   "codeExist": 0
 }
