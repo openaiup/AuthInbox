@@ -343,10 +343,18 @@ export default {
   Email content: ${rawEmail}.
   Please replace the raw email content in place of [Insert raw email content here]. Please read the email and extract the following information:
 
-CRITICAL RULES:
-- If the email contains ANY of these keywords/phrases: "password reset", "reset password", "forgot password", "password recovery", "recover password", "change password", "new password", "reset your password", "password assistance", "密码重置", "重置密码", "忘记密码", "找回密码", "修改密码" - IMMEDIATELY return {"codeExist": 0}
-- ONLY extract verification codes that are for LOGIN or SIGN-IN purposes
-- Look for positive indicators like: "sign in", "log in", "login", "authentication", "verify your identity", "登录", "登入", "身份验证"
+CRITICAL RULES FOR FILTERING:
+- Check the email subject line. If it contains ANY of these patterns, IMMEDIATELY return {"codeExist": 0}:
+  * "密码重置验证码" (password reset verification code)
+  * Subject containing both "密码" and "重置"
+  * "password reset" in subject
+- Also check email body for these EXACT phrases and return {"codeExist": 0} if found:
+  * "输入此临时验证码以继续" followed by "如果您未尝试重置密码"
+  * "密码重置" in the body
+- ONLY extract codes that are for LOGIN purposes, indicated by:
+  * "Your ChatGPT code is" in subject (login code)
+  * "suspicious log-in" or "log in" in body
+  * "登录验证码" or similar login-related terms
 
 1. Extract the code from the email (if available).
 2. Extract ONLY the email address part:
@@ -365,7 +373,7 @@ Format the output as JSON with this structure:
 If both a code and a link are present, only display the code in the 'code' field, like this:
 "code": "code"
 
-If there is no code, clickable link, this is an advertisement email, OR if this is related to password reset/recovery in ANY way, return:
+If there is no code, clickable link, this is an advertisement email, OR if this is a password reset email, return:
 {
   "codeExist": 0
 }
