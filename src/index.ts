@@ -35,28 +35,6 @@ function escapeHtml(text: string): string {
     return text.replace(/[&<>"']/g, m => map[m]);
 }
 
-// 计算剩余时间百分比
-function getTimePercentage(createdAt: string): number {
-    const created = new Date(createdAt);
-    const now = new Date();
-    const diffMinutes = Math.floor((now.getTime() - created.getTime()) / 1000 / 60);
-    const remaining = 10 - diffMinutes;
-    return Math.max(0, Math.min(100, (remaining / 10) * 100));
-}
-
-// 获取时间状态类名
-function getTimeColorClass(createdAt: string): string {
-    const created = new Date(createdAt);
-    const now = new Date();
-    const diffMinutes = Math.floor((now.getTime() - created.getTime()) / 1000 / 60);
-    const remaining = 10 - diffMinutes;
-    
-    if (remaining <= 0) return 'expired';
-    if (remaining <= 2) return 'danger';
-    if (remaining <= 5) return 'warning';
-    return 'good';
-}
-
 // 计算剩余时间
 function getTimeRemaining(createdAt: string): string {
     const created = new Date(createdAt);
@@ -66,16 +44,7 @@ function getTimeRemaining(createdAt: string): string {
     
     if (remaining <= 0) return '<span style="color: #999;">已过期</span>';
     if (remaining <= 2) return `<span style="color: red; font-weight: bold;">剩余 ${remaining} 分钟</span>`;
-    if (remaining <= 5) return `<span style="color: orange;">剩余 ${remaining} 分钟</span>`;
     return `<span style="color: green;">剩余 ${remaining} 分钟</span>`;
-}
-
-// 检查是否是新验证码（2分钟内）
-function isNewCode(createdAt: string): boolean {
-    const created = new Date(createdAt);
-    const now = new Date();
-    const diffMinutes = Math.floor((now.getTime() - created.getTime()) / 1000 / 60);
-    return diffMinutes < 2;
 }
 
 // 获取可用的 Google API Keys
@@ -99,6 +68,8 @@ function getNextKeyIndex(totalKeys: number): number {
 
 // 调用 OpenAI API
 async function callOpenAI(prompt: string, apiKey: string): Promise<any> {
+    console.log('🔄 Trying OpenAI API as backup...');
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -119,10 +90,11 @@ async function callOpenAI(prompt: string, apiKey: string): Promise<any> {
     });
 
     if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
+    console.log('✅ OpenAI API succeeded');
     
     // 转换 OpenAI 响应格式以匹配现有的处理逻辑
     return {
@@ -150,6 +122,8 @@ async function callAIWithRoundRobin(prompt: string, env: Env): Promise<any> {
         const keyIndex = getNextKeyIndex(apiKeys.length);
         const currentKey = apiKeys[keyIndex];
         
+        console.log(`Using Google API key ${keyIndex + 1}/${apiKeys.length} (round-robin)`);
+        
         try {
             const aiResponse = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${currentKey}`,
@@ -171,23 +145,26 @@ async function callAIWithRoundRobin(prompt: string, env: Env): Promise<any> {
             );
 
             if (aiResponse.ok) {
+                console.log(`✅ Google API key ${keyIndex + 1} succeeded`);
                 return await aiResponse.json();
             } else if (aiResponse.status === 429) {
+                console.log(`❌ Google API key ${keyIndex + 1} quota exceeded (429), trying other keys`);
                 // 如果当前key配额用完，尝试其他key
                 const result = await tryOtherGoogleKeys(prompt, apiKeys, keyIndex);
                 if (result) return result;
                 // 如果所有 Google keys 都失败，尝试 OpenAI
                 throw new Error('All Google API keys failed');
             } else {
-                throw new Error(`Google API error: ${aiResponse.status}`);
+                throw new Error(`Google API error: ${aiResponse.status} ${aiResponse.statusText}`);
             }
         } catch (error) {
+            console.error(`Google API key ${keyIndex + 1} failed:`, error);
             // 尝试其他 Google key 作为备用
             try {
                 const result = await tryOtherGoogleKeys(prompt, apiKeys, keyIndex);
                 if (result) return result;
             } catch (googleError) {
-                // 继续尝试 OpenAI
+                console.log('All Google API keys failed, trying OpenAI...');
             }
             // 如果所有 Google keys 都失败，尝试 OpenAI
             throw new Error('All Google API keys failed');
@@ -204,10 +181,13 @@ async function callAIWithRoundRobin(prompt: string, env: Env): Promise<any> {
 
 // 当主要key失败时，尝试其他 Google key
 async function tryOtherGoogleKeys(prompt: string, apiKeys: string[], excludeIndex: number): Promise<any> {
+    console.log('Trying backup Google keys...');
+    
     for (let i = 0; i < apiKeys.length; i++) {
         if (i === excludeIndex) continue; // 跳过已经失败的key
         
         const backupKey = apiKeys[i];
+        console.log(`Trying backup Google API key ${i + 1}/${apiKeys.length}`);
         
         try {
             const aiResponse = await fetch(
@@ -230,13 +210,17 @@ async function tryOtherGoogleKeys(prompt: string, apiKeys: string[], excludeInde
             );
 
             if (aiResponse.ok) {
+                console.log(`✅ Backup Google API key ${i + 1} succeeded`);
                 return await aiResponse.json();
             } else if (aiResponse.status === 429) {
+                console.log(`❌ Backup Google API key ${i + 1} also quota exceeded`);
                 continue;
             } else {
+                console.log(`❌ Backup Google API key ${i + 1} error: ${aiResponse.status}`);
                 continue;
             }
         } catch (error) {
+            console.error(`Backup Google API key ${i + 1} failed:`, error);
             continue;
         }
     }
@@ -253,7 +237,7 @@ export default {
             ).run();
             
             if (cleanupResult.meta.changes > 0) {
-                console.log(`Cleaned ${cleanupResult.meta.changes} expired codes`);
+                console.log(`Auto cleaned ${cleanupResult.meta.changes} expired codes`);
             }
             
             // 获取所有验证码数据
@@ -268,39 +252,20 @@ export default {
 
                 if (codeLinkParts.length > 1) {
                     const [code, link] = codeLinkParts;
-                    codeLinkContent = `
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span>${escapeHtml(code)}</span>
-                            <button style="background: linear-gradient(135deg, #00d4ff, #7000ff); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85em;" onclick="copyCode('${escapeHtml(code)}', this)">复制</button>
-                        </div>
-                        <br><a href="${escapeHtml(link)}" target="_blank">${escapeHtml(row.topic)}</a>`;
+                    codeLinkContent = `${escapeHtml(code)}<br><a href="${escapeHtml(link)}" target="_blank">${escapeHtml(row.topic)}</a>`;
                 } else if (row.code.startsWith('http')) {
                     codeLinkContent = `<a href="${escapeHtml(row.code)}" target="_blank">${escapeHtml(row.topic)}</a>`;
                 } else {
-                    codeLinkContent = `
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span>${escapeHtml(row.code)}</span>
-                            <button style="background: linear-gradient(135deg, #00d4ff, #7000ff); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85em;" onclick="copyCode('${escapeHtml(row.code)}', this)">复制</button>
-                        </div>`;
+                    codeLinkContent = escapeHtml(row.code);
                 }
 
-                const timePercentage = getTimePercentage(row.created_at);
-                const colorClass = getTimeColorClass(row.created_at);
-                const isNew = isNewCode(row.created_at);
-
-                dataHtml += `<tr data-created-at="${row.created_at}">
-                    <td>${escapeHtml(row.from_org)}${isNew ? '<span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; margin-left: 8px;">NEW</span>' : ''}</td>
+                dataHtml += `<tr>
+                    <td>${escapeHtml(row.from_org)}</td>
                     <td>${escapeHtml(row.topic)}</td>
                     <td>${codeLinkContent}</td>
                     <td>
-                        <div>${escapeHtml(row.created_at)}</div>
-                        <div style="display: inline-flex; align-items: center; gap: 8px; margin-top: 4px;">
-                            <span style="font-size: 0.9em; font-weight: 500;">${getTimeRemaining(row.created_at)}</span>
-                        </div>
-                        ${timePercentage > 0 ? `
-                        <div style="width: 100%; height: 6px; background-color: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 8px; overflow: hidden; position: relative;">
-                            <div style="height: 100%; background: linear-gradient(90deg, ${colorClass === 'good' ? '#4CAF50, #45a049' : colorClass === 'warning' ? '#ff9800, #f57c00' : '#f44336, #d32f2f'}); border-radius: 3px; transition: width 1s linear; width: ${timePercentage}%;"></div>
-                        </div>` : ''}
+                        ${escapeHtml(row.created_at)}<br>
+                        <small>${getTimeRemaining(row.created_at)}</small>
                     </td>
                 </tr>`;
             }
@@ -308,8 +273,7 @@ export default {
             // 如果没有数据，显示提示
             if (results.length === 0) {
                 dataHtml = `<tr><td colspan="4" style="text-align: center; padding: 40px; color: #6c757d;">
-                    暂无验证码<br>
-                    <small style="color: #999; margin-top: 10px; display: block;">验证码将在收到后自动显示</small>
+                    暂无验证码数据
                 </td></tr>`;
             }
 
@@ -323,124 +287,6 @@ export default {
                     </tr>
                 `)
                 .replace('{{DATA}}', dataHtml);
-
-            // 在HTML末尾添加JavaScript功能
-            responseHtml = responseHtml.replace('</body>', `
-                <script>
-                    function copyCode(code, button) {
-                        navigator.clipboard.writeText(code).then(() => {
-                            const originalText = button.textContent;
-                            button.textContent = '已复制';
-                            setTimeout(() => {
-                                button.textContent = originalText;
-                            }, 1000);
-                        }).catch(() => {
-                            const textArea = document.createElement('textarea');
-                            textArea.value = code;
-                            document.body.appendChild(textArea);
-                            textArea.select();
-                            document.execCommand('copy');
-                            document.body.removeChild(textArea);
-                            
-                            const originalText = button.textContent;
-                            button.textContent = '已复制';
-                            setTimeout(() => {
-                                button.textContent = originalText;
-                            }, 1000);
-                        });
-                    }
-
-                    function updateCountdowns() {
-                        const rows = document.querySelectorAll('tbody tr[data-created-at]');
-                        const now = new Date();
-                        
-                        rows.forEach(row => {
-                            const createdAt = new Date(row.dataset.createdAt);
-                            const diffMinutes = (now.getTime() - createdAt.getTime()) / 1000 / 60;
-                            const remaining = 10 - diffMinutes;
-                            const percentage = Math.max(0, Math.min(100, (remaining / 10) * 100));
-                            
-                            let displayText = '';
-                            let color = '';
-                            
-                            if (remaining <= 0) {
-                                displayText = '已过期';
-                                color = '#999';
-                            } else if (remaining <= 2) {
-                                displayText = \`剩余 \${Math.floor(remaining)} 分 \${Math.floor((remaining % 1) * 60)} 秒\`;
-                                color = '#f44336';
-                            } else if (remaining <= 5) {
-                                displayText = \`剩余 \${Math.floor(remaining)} 分钟\`;
-                                color = '#ff9800';
-                            } else {
-                                displayText = \`剩余 \${Math.floor(remaining)} 分钟\`;
-                                color = '#4CAF50';
-                            }
-                            
-                            const timeCell = row.cells[3];
-                            const timeSpan = timeCell.querySelector('span');
-                            if (timeSpan) {
-                                timeSpan.innerHTML = \`<span style="color: \${color}">\${displayText}</span>\`;
-                            }
-                            
-                            const progressBar = timeCell.querySelector('div > div');
-                            if (progressBar && percentage > 0) {
-                                progressBar.style.width = \`\${percentage}%\`;
-                                
-                                let gradient = '';
-                                if (remaining <= 2) {
-                                    gradient = 'linear-gradient(90deg, #f44336, #d32f2f)';
-                                } else if (remaining <= 5) {
-                                    gradient = 'linear-gradient(90deg, #ff9800, #f57c00)';
-                                } else {
-                                    gradient = 'linear-gradient(90deg, #4CAF50, #45a049)';
-                                }
-                                progressBar.style.background = gradient;
-                            } else if (percentage <= 0) {
-                                const progressContainer = timeCell.querySelector('div[style*="background-color: rgba(255,255,255,0.1)"]');
-                                if (progressContainer) {
-                                    progressContainer.remove();
-                                }
-                            }
-                        });
-                    }
-
-                    document.addEventListener('DOMContentLoaded', function() {
-                        setInterval(updateCountdowns, 1000);
-                        
-                        // 检查新验证码并播放提示音
-                        const rows = document.querySelectorAll('tbody tr[data-created-at]');
-                        const now = new Date();
-                        
-                        rows.forEach(row => {
-                            const createdAt = new Date(row.dataset.createdAt);
-                            const diffMinutes = (now.getTime() - createdAt.getTime()) / 1000 / 60;
-                            
-                            if (diffMinutes < 1) {
-                                setTimeout(() => {
-                                    try {
-                                        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                                        const oscillator = audioContext.createOscillator();
-                                        const gainNode = audioContext.createGain();
-                                        
-                                        oscillator.connect(gainNode);
-                                        gainNode.connect(audioContext.destination);
-                                        
-                                        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-                                        oscillator.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.1);
-                                        
-                                        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                                        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-                                        
-                                        oscillator.start(audioContext.currentTime);
-                                        oscillator.stop(audioContext.currentTime + 0.1);
-                                    } catch (e) {}
-                                }, 500);
-                            }
-                        });
-                    });
-                </script>
-            </body>`);
 
             return new Response(responseHtml, {
                 headers: {
@@ -467,12 +313,15 @@ export default {
                 return;
             }
 
+            console.log(`Available Google API keys: ${availableGoogleKeys.length}, OpenAI: ${hasOpenAI ? 'Yes' : 'No'}`);
+
             // 检查重复邮件
             const existing = await env.DB.prepare(
                 'SELECT 1 FROM raw_mails WHERE message_id = ?'
             ).bind(message_id).first();
 
             if (existing) {
+                console.log(`Duplicate message detected: ${message_id}`);
                 return;
             }
 
@@ -487,6 +336,7 @@ export default {
 
             if (!success) {
                 message.setReject(`Failed to save message from ${message.from} to ${message.to}`);
+                console.log(`Failed to save message from ${message.from} to ${message.to}`);
                 return;
             }
 
@@ -548,6 +398,7 @@ If there is no login verification code, clickable link, or this is an advertisem
                     try {
                         // 使用轮流调用 AI API（包括 OpenAI 备份）
                         const aiData = await callAIWithRoundRobin(aiPrompt, env);
+                        console.log(`AI response attempt ${retryCount + 1}:`, aiData);
 
                         if (
                             aiData &&
@@ -558,6 +409,7 @@ If there is no login verification code, clickable link, or this is an advertisem
                             aiData.candidates[0].content.parts[0]
                         ) {
                             let extractedText = aiData.candidates[0].content.parts[0].text;
+                            console.log(`Extracted Text before parsing: "${extractedText}"`);
 
                             const jsonMatch = extractedText.match(/```json\s*([\s\S]*?)\s*```/);
                             if (jsonMatch && jsonMatch[1]) {
@@ -568,24 +420,30 @@ If there is no login verification code, clickable link, or this is an advertisem
 
                             try {
                                 extractedData = JSON.parse(extractedText);
+                                console.log(`Parsed Extracted Data:`, extractedData);
                                 
                                 // 验证数据
                                 if (extractedData.codeExist === 1) {
                                     if (!extractedData.title || !extractedData.code || !extractedData.topic) {
+                                        console.error("Missing required fields in AI response");
                                         extractedData = null;
                                         throw new Error("Invalid data structure");
                                     }
                                 }
                             } catch (parseError) {
+                                console.error("JSON parsing error:", parseError);
                                 throw parseError;
                             }
                         } else {
                             throw new Error("AI response is missing expected data structure");
                         }
                     } catch (error) {
+                        console.error(`Attempt ${retryCount + 1} failed:`, error);
+                        
                         // 如果是 Google API 失败，尝试 OpenAI
                         if (retryCount === 0 && env.OpenAIAPIKey) {
                             try {
+                                console.log('🔄 Trying OpenAI as fallback...');
                                 const aiData = await callOpenAI(aiPrompt, env.OpenAIAPIKey);
                                 
                                 if (
@@ -606,10 +464,11 @@ If there is no login verification code, clickable link, or this is an advertisem
                                     }
 
                                     extractedData = JSON.parse(extractedText);
+                                    console.log(`OpenAI Parsed Data:`, extractedData);
                                     break; // 成功，退出重试循环
                                 }
                             } catch (openaiError) {
-                                // OpenAI 也失败，继续重试
+                                console.error('OpenAI fallback failed:', openaiError);
                             }
                         }
                         
@@ -621,6 +480,9 @@ If there is no login verification code, clickable link, or this is an advertisem
 
                     if (!extractedData) {
                         retryCount++;
+                        if (retryCount >= maxRetries) {
+                            console.error("Max retries reached. Unable to get valid AI response.");
+                        }
                     }
                 }
 
@@ -637,7 +499,7 @@ If there is no login verification code, clickable link, or this is an advertisem
                         ).run();
 
                         if (!codeMailSuccess) {
-                            console.error(`Failed to save code for ${message.from}`);
+                            console.error(`Failed to save extracted code for message from ${message.from} to ${message.to}`);
                         }
 
                         // 发送 Bark 通知
@@ -660,34 +522,38 @@ If there is no login verification code, clickable link, or this is an advertisem
                                         method: "GET"
                                     });
 
-                                    return barkResponse.ok;
+                                    if (barkResponse.ok) {
+                                        console.log(`Successfully sent notification to Bark for token ${token}`);
+                                    } else {
+                                        console.error(`Failed to send notification to Bark for token ${token}: ${barkResponse.status}`);
+                                    }
+                                    return barkResponse;
                                 } catch (error) {
-                                    return false;
+                                    console.error(`Bark notification error for token ${token}:`, error);
+                                    return null;
                                 }
                             });
 
-                            const results = await Promise.allSettled(barkPromises);
-                            const successCount = results.filter(r => r.status === 'fulfilled' && r.value === true).length;
-                            
-                            if (successCount > 0) {
-                                console.log(`Bark sent: ${successCount}/${barkTokens.length}`);
-                            }
+                            await Promise.allSettled(barkPromises);
                         }
 
                         // 记录处理时间
                         const processingTime = Date.now() - startTime;
-                        console.log(`Email processed: ${code} (${processingTime}ms)`);
+                        console.log(`Email processed successfully in ${processingTime}ms with ${availableGoogleKeys.length} Google API keys + ${hasOpenAI ? '1' : '0'} OpenAI key available`);
                     } else {
-                        console.log("No login code found");
+                        console.log("No login verification code found in this email.");
                     }
                 } else {
-                    console.error("Failed to extract data after retries");
+                    console.error("Failed to extract data from AI response after retries.");
                 }
             } catch (e) {
-                console.error("AI/DB error:", e.message);
+                console.error("Error calling AI or saving to database:", e);
             }
         } catch (error) {
-            console.error(`Email processing failed: ${error.message}`);
+            console.error(`Failed to process email from ${message.from} to ${message.to}:`, {
+                error: error.message,
+                messageId: message_id
+            });
         }
     }
 } satisfies ExportedHandler<Env>;
