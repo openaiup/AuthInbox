@@ -308,8 +308,8 @@ export default {
             // 如果没有数据，显示提示
             if (results.length === 0) {
                 dataHtml = `<tr><td colspan="4" style="text-align: center; padding: 40px; color: #6c757d;">
-                    暂无验证码数据<br>
-                    <small style="color: #999; margin-top: 10px; display: block;">验证码将在收到邮件后自动显示</small>
+                    暂无验证码<br>
+                    <small style="color: #999; margin-top: 10px; display: block;">验证码将在收到后自动显示</small>
                 </td></tr>`;
             }
 
