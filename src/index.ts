@@ -342,92 +342,98 @@ export default {
             const aiPrompt = `
 Email content: ${rawEmail}.
 
-**CRITICAL FIRST STEP — EMAIL TYPE CLASSIFICATION**
-(case-insensitive; decode quoted-printable and RFC 2047 encoded headers such as "=?UTF-8?...?=" before matching)
+**READ THIS LIKE A DECISION TREE. RETURN JSON ONLY (no markdown, no extra text).**
+(case-insensitive; decode quoted-printable and RFC 2047 headers like "=?UTF-8?...?=" before matching)
 
-Classify the email as exactly one of:
+You must classify the email as exactly one of:
 - Type A: LOGIN/SIGN-IN verification email
 - Type B: PASSWORD RESET / ACCOUNT RECOVERY / UNLOCK email
 - Type C: Other (advertisement, notification, etc.)
 
-### TYPE B (RESET/RECOVERY/UNLOCK) — HARD RULES
-Classify as **Type B immediately** if ANY strong reset/recovery/unlock signal appears:
-
-**Subject contains ANY of (English or Chinese):**
+########################
+# GATE 0 — SUBJECT HARD CHECK (STOP IF MATCHES)
+########################
+Decode the Subject first. If the Subject contains ANY of the following (English or Chinese),
+**IMMEDIATELY return exactly {"codeExist": 0} and stop**:
 - "password reset", "reset your password", "password reset code", "password change", "change your password",
   "password recovery", "recover your account", "reset verification code", "verification code for password reset"
-- "密码重置", "重置密码", "重设密码", "修改密码", "找回密码", "密码恢复", **"密码重置验证码"**
+- "密码重置", "重置密码", "重设密码", "修改密码", "找回密码", "密码恢复", "密码重置验证码"
 
-**Body shows strong reset/recovery/unlock instructions NEAR a numeric code (same paragraph or within ±600 chars):**
+########################
+# GATE 1 — BODY RESET/RECOVERY/UNLOCK (NEAR-CODE HARD CHECK)
+########################
+If the Body (same paragraph or within ±600 chars of a numeric code) contains strong reset/recovery/unlock instructions,
+**IMMEDIATELY return {"codeExist": 0} and stop**:
 - English: "use this code to reset your password", "to reset your password, enter this code",
   "password reset code", "password recovery code", "reset code for your account",
   "account recovery", "recover your account", "unlock your account"
 - Chinese: "使用此验证码重置密码", "要重置密码请输入此验证码", "用于修改密码的验证码",
   "找回账户验证码", "账户恢复", "解锁账号"
 
-Notes:
-- A **generic disclaimer** like "If you were not trying to log in, please reset your password" **alone does NOT** force Type B.
-- If Subject indicates reset/recovery/unlock but Body mentions sign-in, **Subject wins → Type B**.
+Note: a generic disclaimer like "If you were not trying to log in, please reset your password" **alone does NOT** trigger B.
 
-### TYPE A (LOGIN/SIGN-IN) — ALL MUST HOLD
-- No **strong** Type B signals above.
-- There is clear **login intent** in the same sentence/paragraph or **within ±600 characters of the chosen code**. Accept ANY of:
+########################
+# TYPE A (LOGIN/SIGN-IN) — ALL MUST HOLD
+########################
+- No match in GATE 0 or GATE 1.
+- There is **clear login intent** in the same sentence/paragraph or **within ±600 characters of the chosen code**.
+  Accept ANY of these as login intent:
   English: "log-in code", "login code", "sign-in code", "verify your sign-in", "verify it’s you",
            "use this code to sign in", "device sign-in", "new sign-in", "sign in to your account",
            "enter this code to continue", "suspicious log-in", "two-step verification", "2-step verification",
            "two-factor", "2FA", "one-time passcode", "one-time code".
   Chinese: "登录验证码", "登录", "可疑登录", "验证以登录", "验证您的登录",
            "设备登录", "新登录", "输入此代码继续", "两步验证", "两步登录", "双重验证", "一次性验证码".
-- The email contains a **6-digit** verification code (may be written with spaces/hyphens/dots; see extraction).
-- Important: generic tokens such as "verification code / 验证码 / OTP / 临时验证码" **by themselves are NOT sufficient**;
-  at least one **login-intent** phrase above must be present **near the chosen code**.
+- IMPORTANT: the following are **NEUTRAL and NOT sufficient** by themselves:
+  "verification code", "temporary verification code", "code", "OTP", "验证码", "临时验证码".
+- The email includes a **6-digit** verification code (may be written with spaces/hyphens/dots; see extraction).
 
-### TYPE C
-- If neither Type A nor Type B.
+If the above does not hold → Type C.
 
-**Decision:**
-- If Type B → return **exactly** {"codeExist": 0}
-- If Type C → return **exactly** {"codeExist": 0}
-- Only if Type A → proceed to extraction.
+########################
+# DECISION → WHAT TO RETURN
+########################
+- If Type B (matched in GATE 0 or GATE 1): return exactly
+{ "codeExist": 0 }
 
----
+- If Type C: return exactly
+{ "codeExist": 0 }
 
-**EXTRACTION (ONLY IF TYPE A)**
+- Only if Type A: proceed to extraction.
 
+########################
+# EXTRACTION (ONLY IF TYPE A)
+########################
 1) Login verification code:
-- Extract **only** the code used for **logging in / signing in**.
-- **Never** extract codes used for password reset, password change, account recovery, or unlock flows
-  ("reset your password", "change password", "password assistance", "recover account", "unlock",
-   "安全验证（修改密码）", "密码重置/重设/修改/找回/恢复/解锁").
-- **Normalization**: remove spaces, hyphens, and dots from numeric strings before validation
-  (e.g., "12 34 56" / "12-34-56" / "12.34.56" → "123456").
-- Candidate sources: Subject or Body.
-- If multiple candidates exist, choose the **6-digit** code that:
-  a) is closest (same sentence/paragraph or within ±600 chars) to a **login-intent** phrase listed above, and  
-  b) is **not** inside a Type B context.
-- If no valid login code exists, treat as "no code".
+   - Extract **only** the code used for **logging in / signing in**.
+   - **Never** extract codes used for password reset, password change, account recovery, or unlock flows.
+   - **Normalize**: remove spaces/hyphens/dots before validation (e.g., "12 34 56" / "12-34-56" / "12.34.56" → "123456").
+   - Candidates: Subject or Body.
+   - If multiple, choose the **6-digit** code that:
+     a) is closest (same sentence/paragraph or within ±600 chars) to a **login-intent** phrase listed above, and
+     b) is **not** inside a reset/recovery/unlock context (GATE 1).
+   - If no valid login code exists → return { "codeExist": 0 }.
 
 2) Sender email address ONLY:
-- HEADER PRIORITY:
-  a) FIRST use **Resent-From**. If "Name <email@example.com>", extract **only** the address inside <>; if bare, use that address.
-  b) ONLY IF Resent-From is absent, use **From** with the same rule.
-- Output must be the email address only (no display name, no angle brackets).
+   - FIRST use **Resent-From** header. If "Name <email@example.com>", output ONLY "email@example.com". If bare, use that.
+   - ONLY IF Resent-From is absent, use **From** with the same rule.
+   - Output must be the email address only (no display name, no angle brackets).
 
 3) Brief topic:
-- A short English phrase, e.g., "account login verification".
+   - Short English phrase, e.g., "account login verification".
 
----
-
-**OUTPUT FORMAT (STRICT) — Works for Gemini 2.5-flash & GPT-4o-mini**
+########################
+# OUTPUT FORMAT (STRICT) — for Gemini 2.5-flash & GPT-4o-mini
+########################
 - Return **valid JSON only**. No markdown fences, no explanations, no extra text.
 - Use these exact keys and no others. No trailing commas.
 
-- For Type B or Type C, or when no valid login code is found:
+- If Type B or Type C, or when no valid login code is found:
 {
   "codeExist": 0
 }
 
-- For Type A with a valid login code:
+- If Type A with a valid login code:
 {
   "title": "sender@example.com",
   "code": "123456",
