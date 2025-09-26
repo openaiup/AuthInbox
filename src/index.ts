@@ -339,98 +339,117 @@ export default {
             }
 
             // 改进的 AI 提示词（适配 2.5 Flash）
-            const aiPrompt = `
-Email content: ${rawEmail}.
+const aiPrompt = `
+Email content (raw): ${rawEmail}
 
-READ CAREFULLY AND FOLLOW AS A DECISION TREE. RESPOND WITH **JSON ONLY** (no markdown fences, no extra text).
-
-############################################
-# 0) GOAL
-############################################
-Classify the email and, only for login/sign-in emails, extract a single 6-digit login code and the sender address.
-If unsure at any step, prefer {"codeExist": 0}.
+FOLLOW THIS DECISION TREE. OUTPUT **JSON ONLY** (no markdown fences, no extra text).  
+If uncertain at any step, return {"codeExist": 0}.
 
 ############################################
-# 1) TYPES
+# GOAL
+############################################
+Classify the email. Only for **login/sign-in** emails, extract:
+- a single **6-digit** login code (keep leading zeros; normalize formatting),
+- the sender email address only,
+- a brief topic string.
+Otherwise return {"codeExist": 0}.
+
+All matching is **case-insensitive**. Decode **quoted-printable** and **RFC 2047** headers (e.g., "=?UTF-8?...?=") before matching.
+
+############################################
+# TYPES
 ############################################
 - Type A: LOGIN/SIGN-IN verification email
 - Type B: PASSWORD RESET / ACCOUNT RECOVERY / UNLOCK email
-- Type C: Other (advertisement, notification, etc.)
-
-All matching is case-insensitive. Decode quoted-printable and RFC 2047 encoded headers (e.g., "=?UTF-8?...?=") before matching.
+- Type C: Other (ads/notifications/etc.)
 
 ############################################
-# 2) TYPE B — HARD DENY RULES (IMMEDIATE RETURN)
+# STEP 1 — SUBJECT HARD DENY (STOP IF MATCHES)
 ############################################
-If **Subject** contains ANY of (English or Chinese), classify as Type B immediately and stop:
-- "password reset", "reset your password", "password reset code", "password change",
-  "change your password", "password recovery", "recover your account",
-  "reset verification code", "verification code for password reset"
-- "密码重置", "重置密码", "重设密码", "修改密码", "找回密码", "密码恢复", "密码重置验证码"
+Extract/identify the Subject. If it contains ANY of (EN or ZH), **IMMEDIATELY** return:
+{ "codeExist": 0 }
+and stop.
 
-If **Body** shows strong reset/recovery/unlock instructions **near a numeric code** (same paragraph or within ±600 chars), classify as Type B and stop:
-- EN: "use this code to reset your password", "to reset your password, enter this code",
-      "password reset code", "password recovery code", "reset code for your account",
-      "account recovery", "recover your account", "unlock your account"
-- ZH: "使用此验证码重置密码", "要重置密码请输入此验证码", "用于修改密码的验证码",
-      "找回账户验证码", "账户恢复", "解锁账号"
-
-Note: A generic disclaimer like "If you were not trying to log in, please reset your password" **alone does NOT** force Type B.
+EN: "password reset", "reset your password", "password reset code",
+    "password change", "change your password",
+    "password recovery", "recover your account",
+    "reset verification code", "verification code for password reset"
+ZH: "密码重置", "重置密码", "重设密码", "修改密码", "找回密码", "密码恢复", "密码重置验证码"
 
 ############################################
-# 3) TYPE A — STRICT LOGIN SIGNALS
+# STEP 2 — BODY RESET/RECOVERY/UNLOCK NEAR-CODE DENY
 ############################################
-Proceed to Type A **only if** no Type B rule matched.
+Scan the body text. If there are **strong reset/recovery/unlock instructions**  
+**in the same sentence/paragraph or within ±600 characters of any numeric code**, **IMMEDIATELY** return:
+{ "codeExist": 0 } and stop.
 
-There must be clear **login intent** in the **same sentence/paragraph** or **within ±600 chars of the chosen code**. Accept ANY of:
-- EN: "log-in code", "login code", "sign-in code", "verify your sign-in", "verify it’s you",
-      "use this code to sign in", "device sign-in", "new sign-in", "sign in to your account",
-      "enter this code to continue", "suspicious log-in", "two-step verification", "2-step verification",
-      "two-factor", "2FA", "one-time passcode", "one-time code"
-- ZH: "登录验证码", "登录", "可疑登录", "验证以登录", "验证您的登录",
-      "设备登录", "新登录", "输入此代码继续", "两步验证", "两步登录", "双重验证", "一次性验证码"
+EN: "use this code to reset your password", "to reset your password, enter this code",
+    "password reset code", "password recovery code", "reset code for your account",
+    "account recovery", "recover your account", "unlock your account"
+ZH: "使用此验证码重置密码", "要重置密码请输入此验证码",
+    "用于修改密码的验证码", "找回账户验证码", "账户恢复", "解锁账号"
 
-IMPORTANT: The tokens **"verification code" / "temporary verification code" / "code" / "OTP" / "验证码" / "临时验证码"** are **NEUTRAL** and NOT sufficient by themselves. At least one **login intent** phrase above must be present near the chosen code.
-
-If the above is not satisfied → Type C.
+Note: a generic line like "If you were not trying to log in, please reset your password"
+**alone does NOT** trigger B.
 
 ############################################
-# 4) WHAT TO RETURN AFTER CLASSIFICATION
+# STEP 3 — LOGIN EVIDENCE CHECK (ONLY IF STEP 1 & 2 DID NOT MATCH)
 ############################################
-- If Type B: return **exactly**
+To classify as **Type A**, ALL must hold:
+1) No match in Step 1 or Step 2.
+2) There is at least one **login-intent phrase** in the **same sentence/paragraph** or **within ±600 characters of the chosen code**.
+   Accept ANY of:
+   EN: "log-in code", "login code", "sign-in code", "verify your sign-in", "verify it’s you",
+       "use this code to sign in", "device sign-in", "new sign-in", "sign in to your account",
+       "enter this code to continue", "suspicious log-in",
+       "two-step verification", "2-step verification", "two-factor", "2FA",
+       "one-time passcode", "one-time code"
+   ZH: "登录验证码", "登录", "可疑登录", "验证以登录", "验证您的登录",
+       "设备登录", "新登录", "输入此代码继续", "两步验证", "两步登录", "双重验证", "一次性验证码"
+3) IMPORTANT: the tokens **"verification code" / "temporary verification code" / "code" / "OTP" / "验证码" / "临时验证码"**
+   are **NEUTRAL** and **NOT sufficient** by themselves; at least one **login-intent** phrase above must be near the code.
+4) The email contains a **6-digit** numeric code (digits may be spaced / dashed / dotted; see normalization).
+If any item fails → **Type C**.
+
+############################################
+# WHAT TO RETURN AFTER CLASSIFICATION
+############################################
+- If **Type B**: return exactly
 { "codeExist": 0 }
 
-- If Type C: return **exactly**
+- If **Type C**: return exactly
 { "codeExist": 0 }
 
-- Only if Type A: do the extraction below.
+- Only if **Type A**: perform extraction below.
 
 ############################################
-# 5) EXTRACTION (ONLY IF TYPE A)
+# EXTRACTION (ONLY IF TYPE A)
 ############################################
 1) Login verification code:
-   - Extract **only** the code used for **logging in / signing in**.
-   - **Never** extract any code used for password reset, password change, account recovery, or unlock flows.
-   - **Normalize** numeric candidates by removing spaces/hyphens/dots (e.g., "12 34 56" / "12-34-56" / "12.34.56" → "123456").
-   - Candidates may come from **Subject** or **Body**.
+   - Extract **only** the code for **logging in / signing in**.
+   - **Never** extract codes for password reset / change / recovery / unlock.
+   - **Normalize** numeric candidates by removing spaces, hyphens, and dots
+     (e.g., "04 74 22" / "04-74-22" / "04.74.22" → "047422"). **Keep leading zeros**.
+   - Candidates may be from **Subject** or **Body**.
    - Choose the **6-digit** code that:
-     (a) is closest (same sentence/paragraph or within ±600 chars) to a **login-intent** phrase listed above, and
-     (b) is **not** inside any Type B context.
+       (a) is closest (same sentence/paragraph or within ±600 chars) to a **login-intent** phrase, and
+       (b) is **not** inside any reset/recovery/unlock context (Step 2).
    - If no valid login code exists → return { "codeExist": 0 }.
 
 2) Sender email address ONLY (for "title"):
-   - HEADER PRIORITY: first check **Resent-From**. If "Name <email@example.com>", output ONLY "email@example.com".
-     If it is a bare address, use that address.
-   - ONLY IF Resent-From is absent, use **From** with the same rule.
+   - HEADER PRIORITY:
+       a) FIRST use **Resent-From**. If "Name <email@example.com>", output ONLY "email@example.com".
+          If it is a bare address, use that address.
+       b) ONLY IF Resent-From is absent, use **From** with the same rule.
    - Output must be the email address only (no display name, no angle brackets).
 
 3) Brief topic:
    - A short English phrase like "account login verification".
 
 ############################################
-# 6) OUTPUT FORMAT — JSON ONLY (NO FENCES)
+# OUTPUT FORMAT — JSON ONLY (NO FENCES, NO EXTRA TEXT)
 ############################################
-Return **one** of the following JSON objects and nothing else:
+Return exactly one of:
 
 - For Type B or Type C, or when no valid login code is found:
 {
