@@ -75,7 +75,7 @@ async function callOpenAI(prompt: string, apiKey: string): Promise<any> {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            model: 'gpt-3.5-turbo',
+            model: 'gpt-4o-mini', // ← 已改：由 gpt-3.5-turbo 换为 gpt-4o-mini
             messages: [
                 {
                     role: 'user',
@@ -338,7 +338,7 @@ export default {
                 return;
             }
 
-            // 改进的 AI 提示词（仅此处替换）
+            // 改进的 AI 提示词（适配 2.5 Flash）
             const aiPrompt = `
 Email content (raw): ${rawEmail}
 
