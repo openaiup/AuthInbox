@@ -318,50 +318,91 @@ export default {
 
             // 改进的 AI 提示词
             const aiPrompt = `
-Email content: ${rawEmail}.
+Email content: ${rawEmail}
 
-**CRITICAL FIRST STEP - EMAIL TYPE CLASSIFICATION:**
-
-Analyze the email and classify it as either:
+########################
+# CRITICAL FIRST STEP - EMAIL TYPE CLASSIFICATION
+########################
+Goal: Classify the email as exactly one of:
 - Type A: LOGIN/SIGN-IN verification email
 - Type B: PASSWORD RESET email
 - Type C: Other (advertisement, notification, etc.)
 
-Classification criteria:
-TYPE B (PASSWORD RESET) - If ANY of these appear:
+Normalization (for classification ONLY):
+- Case-insensitive matching.
+- Decode quoted-printable fragments if present (e.g., "=E5=AF=86=E7=A0=81=E9=87=8D=E7=BD=AE" → “密码重置” / “password reset”).
+- Trim excess whitespace and line breaks.
+
+Classification criteria (do NOT extract yet):
+TYPE B (PASSWORD RESET) — If ANY of these appear in subject or body:
 - Subject contains: "password reset" | "密码重置" | "=E5=AF=86=E7=A0=81=E9=87=8D=E7=BD=AE"
 - Body contains: "reset your password" | "重置密码" | "password recovery"
 - Body contains: "如果您未尝试重置密码" | "change your password"
 
-TYPE A (LOGIN) - If ALL of these conditions are met:
-- No password reset indicators found
-- Contains phrases: "log-in code" | "sign-in code" | "suspicious log-in"
-- Has a 6-digit verification code
+TYPE A (LOGIN) — ALL of the following must be true:
+- No TYPE B (password reset) indicators anywhere.
+- Contains login-intent phrases such as: "log-in code" | "login code" | "sign-in code" | "one-time sign-in code" | "use *** to log in" | "suspicious log-in"
+- The email includes a 6-digit verification code.
 
-→ If Type B detected: IMMEDIATELY return {"codeExist": 0}
-→ If Type A detected: Continue to extraction
-→ If Type C detected: Return {"codeExist": 0}
+TYPE C — If neither Type A nor Type B.
 
-Please replace the raw email content in place of [Insert raw email content here]. Please read the email and extract the following information:
-1. Extract **only** the verification code whose purpose is explicitly for **logging in / signing in** (look for nearby phrases such as "login code", "sign-in code", "one-time sign-in code", "use XYZ to log in", "log-in code", "suspicious log-in", etc.).  
-   - **Ignore** any codes related to password reset, password change, account recovery, unlock requests, 2-factor codes for password resets, or other non-login purposes (these typically appear near words like "reset your password", "change password", "password assistance", "recover account", "unlock", "安全验证（修改密码）" etc.).  
-   - If multiple codes exist, return only the one that matches the login criterion; if none match, treat as "no code".
-2. Extract ONLY the email address part:
-   - FIRST try to find the Resent-From field in email headers. If found and it's in format "Name <email@example.com>", extract ONLY "email@example.com".
-   - If NO Resent-From field exists, then use the From field and extract ONLY the email address part.
-3. Provide a brief summary of the email's topic (e.g., "account login verification").
-Format the output as JSON with this structure:
-{
-  "title": "The extracted email address ONLY, without any name or angle brackets (e.g., 'sender@example.com')",
-  "code": "Extracted login verification code (e.g., '123456')",
-  "topic": "A brief summary of the email's topic (e.g., 'account login verification')",
-  "codeExist": 1
-}
-If both a login code and a link are present, only display the login verification code in the 'code' field, like this:
-"code": "123456"
-If there is no login verification code, clickable link, or this is an advertisement email, return:
+Immediate actions after classification (STRICT):
+- If Type B: return exactly {"codeExist": 0}
+- If Type C: return exactly {"codeExist": 0}
+- If Type A: proceed to the extraction steps below.
+
+########################
+# EXTRACTION (ONLY IF TYPE A)
+########################
+
+1) Login verification code:
+- Extract ONLY the code explicitly used for LOGGING IN / SIGNING IN.
+- Ignore any codes related to password reset, password change, account recovery, unlock requests, or 2FA used for password resets ("reset your password", "change password", "password assistance", "recover account", "unlock", "安全验证（修改密码）", etc.).
+- If multiple numeric strings exist, select the 6-digit code that:
+  a) is closest (same sentence/paragraph or within ±200 characters) to a login-intent phrase ("login code", "sign-in code", "use *** to log in", "suspicious log-in"), AND
+  b) is NOT in a password-reset context.
+- If no 6-digit login code satisfies these constraints, treat as "no code" → return {"codeExist": 0}.
+
+2) Sender email address ONLY (for the "title" field):
+- HEADER PRIORITY RULE (STRICT):
+  a) FIRST search for the "Resent-From" header. If it looks like "Name <email@example.com>", extract ONLY the address inside the angle brackets. If it is a bare address, extract that bare address.
+  b) ONLY IF "Resent-From" does NOT exist, use the "From" header with the same rule.
+- NEVER output both. NEVER use "From" when "Resent-From" exists.
+- Output must be the email address only (no display name, no angle brackets).
+
+3) Brief topic:
+- A short English phrase describing the main purpose, e.g., "account login verification".
+
+When both a login code and a link are present:
+- Put ONLY the 6-digit login verification code in the "code" field. Do NOT output the link anywhere.
+
+########################
+# OUTPUT FORMAT (STRICT)
+########################
+- Output MUST be valid JSON only. No markdown, no extra text, no comments.
+- No extra fields. No trailing commas.
+
+- If Type B or Type C, or if no valid login code is found, return exactly:
 {
   "codeExist": 0
+}
+
+- If Type A and a valid login code is found, return exactly:
+{
+  "title": "sender@example.com",          // ONLY the extracted email address
+  "code": "123456",                       // ONLY the 6-digit login verification code
+  "topic": "account login verification",  // brief topic
+  "codeExist": 1
+}
+
+If the email does not meet Type A criteria or a valid 6-digit login code cannot be determined with high confidence, return {"codeExist": 0}.
+
+########################
+# REMINDERS
+########################
+- Strictly follow the HEADER PRIORITY RULE (Resent-From > From).
+- Do not hallucinate or infer missing fields.
+- If uncertain, prefer {"codeExist": 0
 }
 `;
 
