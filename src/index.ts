@@ -351,56 +351,78 @@ Goal: Classify the email as exactly one of:
 - Type C: Other (advertisement, notification, etc.)
 
 Normalization (for classification ONLY):
-- Case-insensitive matching.
+- Case-insensitive.
 - Decode quoted-printable fragments if present (e.g., "=E5=AF=86=E7=A0=81=E9=87=8D=E7=BD=AE" → "password reset"/"密码重置").
-- Trim excess whitespace and line breaks.
+- Trim excess whitespace and line breaks. Ignore HTML tags when matching text.
 
 Classification criteria (do NOT extract yet):
 
-TYPE B (PASSWORD RESET) — If ANY of these appear in subject or body:
-- Subject contains: "password reset" | "密码重置" | "=E5=AF=86=E7=A0=81=E9=87=8D=E7=BD=AE"
-- Body contains: "reset your password" | "重置密码" | "password recovery"
-- Body contains: "如果您未尝试重置密码" | "change your password"
+TYPE B (PASSWORD RESET) — classify as B only if there is a **clear password-reset workflow**, for example:
+- Subject explicitly contains: "password reset" | "密码重置" | "=E5=AF=86=E7=A0=81=E9=87=8D=E7=BD=AE", OR
+- Body contains strong reset instructions such as:
+  "password reset code", "use this code to reset your password",
+  "to reset your password, enter this code", "reset code for your account".
+Notes:
+- Generic disclaimers like "If you were not trying to log in, please reset your password" **do NOT** imply Type B by themselves.
+- Any numeric code that appears within a reset workflow (as defined above) must be treated as password-reset and **must not** be extracted.
 
-TYPE A (LOGIN) — Must satisfy ALL:
-- No TYPE B indicators anywhere.
-- Evidence that the code is for account access/sign-in (even if the literal word "login" does not appear). Treat any of these as login intent:
-  English: "verification code", "security code", "one-time code", "one time passcode", "OTP", "two-step verification", "2-step verification", "two-factor", "2FA", "verify your sign-in", "verify it’s you", "use this code to sign in", "device sign-in", "new sign-in", "sign in to your account".
-  Chinese: "验证码", "一次性验证码", "登录验证码", "安全码", "动态验证码", "两步验证", "两步登录", "双重验证", "验证以登录", "验证您的登录", "设备登录", "新登录".
-- The email includes a 6-digit verification code (the code may be formatted with spaces or hyphens; see extraction rules).
+TYPE A (LOGIN) — ALL must be true:
+- No **strong** Type B indicators as defined above.
+- Evidence the code is for account access/sign-in even if the word “login” is absent. Treat ANY of the following as login intent:
+  English: "verification code", "security code", "one-time code", "one time passcode", "OTP",
+           "two-step verification", "2-step verification", "two-factor", "2FA",
+           "verify your sign-in", "verify it’s you", "use this code to sign in",
+           "device sign-in", "new sign-in", "sign in to your account", "enter this code to continue",
+           "log-in code", "login code", "sign-in code".
+  Chinese: "验证码", "一次性验证码", "登录验证码", "安全码", "动态验证码",
+           "两步验证", "两步登录", "双重验证", "验证以登录", "验证您的登录",
+           "设备登录", "新登录", "输入此代码继续".
+- The email contains a numeric verification code of **4–8 digits** (the code may be formatted with spaces/hyphens/dots; see extraction rules).
+
+Conflict rule:
+- If BOTH login intent and a **generic** reset disclaimer are present (e.g., “If you were not trying to log in, please reset your password”), **prefer Type A**.
+- Only when an **explicit reset workflow** is present (e.g., “use this code to reset your password”) classify as Type B.
 
 TYPE C — If neither Type A nor Type B.
 
 Immediate actions after classification (STRICT):
 - If Type B: return exactly {"codeExist": 0}
 - If Type C: return exactly {"codeExist": 0}
-- If Type A: proceed to the extraction steps below.
+- If Type A: proceed to extraction below.
 
 ########################
 # EXTRACTION (ONLY IF TYPE A)
 ########################
 
 1) Login verification code:
-- Extract ONLY the code explicitly used for LOGGING IN / SIGNING IN.
-- Ignore any codes related to password reset, password change, account recovery, unlock requests, or 2FA used for password resets ("reset your password", "change password", "password assistance", "recover account", "unlock", "安全验证（修改密码）", etc.).
-- Normalize numeric codes by removing spaces, hyphens, and dots before validation (e.g., "123 456", "123-456", "12 34 56" → "123456").
-- If multiple numeric strings exist, select the **6-digit** code that:
-  a) is closest (same sentence/paragraph or within ±300 characters) to a login-intent phrase listed above, AND
-  b) is NOT in a password-reset context.
-- If no normalized 6-digit login code satisfies these constraints, treat as "no code" → return {"codeExist": 0}.
+- Extract ONLY the code used for LOGGING IN / SIGNING IN.
+- **Never** extract any code used for password reset, password change, account recovery, unlock requests, or 2FA for password resets
+  ("reset your password", "change password", "password assistance", "recover account", "unlock", "安全验证（修改密码）", etc.).
+- **Normalization**: remove spaces, hyphens, and dots from numeric strings before validation
+  (e.g., "123 456", "123-456", "12.34.56" → "123456").
+- Candidate sources:
+  a) **Subject line**: if the subject contains a 4–8 digit numeric string, treat it as a candidate.
+  b) **Body**: 4–8 digit numeric strings near login-intent phrases.
+- Selection rule (if multiple candidates):
+  a) Prefer the candidate **closest** (same sentence/paragraph or within ±600 characters) to any login-intent phrase listed above
+     OR to generic markers "code"/"验证码"/"OTP".
+  b) Prefer a body candidate over the subject **only** if it is clearly closer to login-intent phrases; otherwise the subject code is acceptable.
+  c) Discard any candidate that appears within an explicit password-reset workflow context (defined in TYPE B).
+- Output the **normalized** digits only. If no valid login code is found → return {"codeExist": 0}.
 
 2) Sender email address ONLY (for the "title" field):
 - HEADER PRIORITY RULE (STRICT):
-  a) FIRST search for the "Resent-From" header. If formatted like "Name <email@example.com>", extract ONLY the address inside the angle brackets. If it is a bare address, extract that address.
+  a) FIRST search for "Resent-From". If formatted like "Name <email@example.com>", extract ONLY the address in angle brackets.
+     If it's a bare address, extract that address.
   b) ONLY IF "Resent-From" does NOT exist, use the "From" header with the same rule.
 - NEVER output both. NEVER use "From" when "Resent-From" exists.
 - Output must be the email address only (no display name, no angle brackets).
 
 3) Brief topic:
-- A short English phrase describing the main purpose, e.g., "account login verification".
+- A short English phrase, e.g., "account login verification".
 
 When both a login code and a link are present:
-- Put ONLY the 6-digit login verification code in the "code" field. Do NOT output the link anywhere.
+- Put ONLY the normalized 4–8 digit login code in "code". Do NOT output the link.
 
 ########################
 # OUTPUT FORMAT (STRICT)
@@ -408,29 +430,29 @@ When both a login code and a link are present:
 - Output MUST be valid JSON only. No markdown, no extra text, no comments.
 - No extra fields. No trailing commas.
 
-- If Type B or Type C, or if no valid login code is found, return exactly:
+- If Type B or Type C, or no valid login code:
 {
   "codeExist": 0
 }
 
-- If Type A and a valid login code is found, return exactly:
+- If Type A and a valid login code is found:
 {
   "title": "sender@example.com",          // ONLY the extracted email address
-  "code": "123456",                       // ONLY the 6-digit login verification code (after normalization)
+  "code": "123456",                       // ONLY the normalized 4–8 digit login code (this is an example value)
   "topic": "account login verification",  // brief topic
   "codeExist": 1
 }
 
-If the email does not meet Type A criteria or a valid 6-digit login code cannot be determined with high confidence, return {"codeExist": 0}.
+If the email does not meet Type A criteria or a valid 4–8 digit login code cannot be determined with high confidence, return {"codeExist": 0}.
 
 ########################
 # REMINDERS
 ########################
 - Strictly follow the HEADER PRIORITY RULE (Resent-From > From).
 - Do not hallucinate or infer missing fields.
+- **Never** output any password-reset code.
 - If uncertain, prefer {"codeExist": 0}.
 `;
-
             try {
                 const maxRetries = 3;
                 let retryCount = 0;
