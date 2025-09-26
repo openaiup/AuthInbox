@@ -356,15 +356,18 @@ Normalization (for classification ONLY):
 - Trim excess whitespace and line breaks.
 
 Classification criteria (do NOT extract yet):
+
 TYPE B (PASSWORD RESET) — If ANY of these appear in subject or body:
 - Subject contains: "password reset" | "密码重置" | "=E5=AF=86=E7=A0=81=E9=87=8D=E7=BD=AE"
 - Body contains: "reset your password" | "重置密码" | "password recovery"
 - Body contains: "如果您未尝试重置密码" | "change your password"
 
-TYPE A (LOGIN) — ALL of the following must be true:
-- No TYPE B (password reset) indicators anywhere.
-- Contains login-intent phrases such as: "log-in code" | "login code" | "sign-in code" | "one-time sign-in code" | "use *** to log in" | "suspicious log-in"
-- The email includes a 6-digit verification code.
+TYPE A (LOGIN) — Must satisfy ALL:
+- No TYPE B indicators anywhere.
+- Evidence that the code is for account access/sign-in (even if the literal word "login" does not appear). Treat any of these as login intent:
+  English: "verification code", "security code", "one-time code", "one time passcode", "OTP", "two-step verification", "2-step verification", "two-factor", "2FA", "verify your sign-in", "verify it’s you", "use this code to sign in", "device sign-in", "new sign-in", "sign in to your account".
+  Chinese: "验证码", "一次性验证码", "登录验证码", "安全码", "动态验证码", "两步验证", "两步登录", "双重验证", "验证以登录", "验证您的登录", "设备登录", "新登录".
+- The email includes a 6-digit verification code (the code may be formatted with spaces or hyphens; see extraction rules).
 
 TYPE C — If neither Type A nor Type B.
 
@@ -380,10 +383,11 @@ Immediate actions after classification (STRICT):
 1) Login verification code:
 - Extract ONLY the code explicitly used for LOGGING IN / SIGNING IN.
 - Ignore any codes related to password reset, password change, account recovery, unlock requests, or 2FA used for password resets ("reset your password", "change password", "password assistance", "recover account", "unlock", "安全验证（修改密码）", etc.).
-- If multiple numeric strings exist, select the 6-digit code that:
-  a) is closest (same sentence/paragraph or within ±200 characters) to a login-intent phrase ("login code", "sign-in code", "use *** to log in", "suspicious log-in"), AND
+- Normalize numeric codes by removing spaces, hyphens, and dots before validation (e.g., "123 456", "123-456", "12 34 56" → "123456").
+- If multiple numeric strings exist, select the **6-digit** code that:
+  a) is closest (same sentence/paragraph or within ±300 characters) to a login-intent phrase listed above, AND
   b) is NOT in a password-reset context.
-- If no 6-digit login code satisfies these constraints, treat as "no code" → return {"codeExist": 0}.
+- If no normalized 6-digit login code satisfies these constraints, treat as "no code" → return {"codeExist": 0}.
 
 2) Sender email address ONLY (for the "title" field):
 - HEADER PRIORITY RULE (STRICT):
@@ -412,7 +416,7 @@ When both a login code and a link are present:
 - If Type A and a valid login code is found, return exactly:
 {
   "title": "sender@example.com",          // ONLY the extracted email address
-  "code": "123456",                       // ONLY the 6-digit login verification code
+  "code": "123456",                       // ONLY the 6-digit login verification code (after normalization)
   "topic": "account login verification",  // brief topic
   "codeExist": 1
 }
