@@ -18,7 +18,6 @@ export interface Env {
     GoogleAPIKey3?: string;  // 第三个 API Key（可选）
     GoogleAPIKey4?: string;  // 第四个 API Key（可选）
     GoogleAPIKey5?: string;  // 第五个 API Key（可选）
-    GoogleAPIKey6?: string;  // 第六个 API Key（可选）
     OpenAIAPIKey?: string;   // OpenAI API Key（可选，作为备份）
     UseBark: string;
 }
@@ -55,7 +54,6 @@ function getAvailableAPIKeys(env: Env): string[] {
     if (env.GoogleAPIKey3) keys.push(env.GoogleAPIKey3);
     if (env.GoogleAPIKey4) keys.push(env.GoogleAPIKey4);
     if (env.GoogleAPIKey5) keys.push(env.GoogleAPIKey5);
-    if (env.GoogleAPIKey6) keys.push(env.GoogleAPIKey6);
     return keys;
 }
 
@@ -66,45 +64,9 @@ function getNextKeyIndex(totalKeys: number): number {
     return minutesSinceEpoch % totalKeys;
 }
 
-// 调用单个 Google API Key
-async function callSingleGoogleAPI(prompt: string, apiKey: string, keyIndex: number, totalKeys: number): Promise<any> {
-    console.log(`🔄 Calling Google API key ${keyIndex + 1}/${totalKeys}`);
-    
-    const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-        {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                "contents": [
-                    {
-                        "parts": [
-                            {"text": prompt}
-                        ]
-                    }
-                ]
-            })
-        }
-    );
-
-    if (!response.ok) {
-        if (response.status === 429) {
-            console.log(`❌ Google API key ${keyIndex + 1} quota exceeded (429)`);
-        } else {
-            console.log(`❌ Google API key ${keyIndex + 1} error: ${response.status} ${response.statusText}`);
-        }
-        throw new Error(`Google API key ${keyIndex + 1} failed: ${response.status}`);
-    }
-
-    console.log(`✅ Google API key ${keyIndex + 1} succeeded`);
-    return await response.json();
-}
-
 // 调用 OpenAI API
 async function callOpenAI(prompt: string, apiKey: string): Promise<any> {
-    console.log('🔄 Using OpenAI API as backup...');
+    console.log('🔄 Trying OpenAI API as backup...');
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -113,7 +75,7 @@ async function callOpenAI(prompt: string, apiKey: string): Promise<any> {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            model: 'gpt-3.5-turbo',
             messages: [
                 {
                     role: 'user',
@@ -126,7 +88,6 @@ async function callOpenAI(prompt: string, apiKey: string): Promise<any> {
     });
 
     if (!response.ok) {
-        console.log(`❌ OpenAI API error: ${response.status} ${response.statusText}`);
         throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
     }
 
@@ -150,57 +111,118 @@ async function callAIWithRoundRobin(prompt: string, env: Env): Promise<any> {
     const apiKeys = getAvailableAPIKeys(env);
     
     if (apiKeys.length === 0 && !env.OpenAIAPIKey) {
-        console.log('❌ No API keys available');
         throw new Error('No API keys available');
     }
     
-    console.log(`🔧 Available: ${apiKeys.length} Google API keys, OpenAI: ${env.OpenAIAPIKey ? 'Yes' : 'No'}`);
-    
     // 如果有 Google API keys，优先使用它们
     if (apiKeys.length > 0) {
-        // 获取本次要使用的key索引（基于时间轮换）
+        // 获取本次要使用的key索引（基于时间）
         const keyIndex = getNextKeyIndex(apiKeys.length);
         const currentKey = apiKeys[keyIndex];
         
+        console.log(`Using Google API key ${keyIndex + 1}/${apiKeys.length} (round-robin)`);
+        
         try {
-            return await callSingleGoogleAPI(prompt, currentKey, keyIndex, apiKeys.length);
+            const aiResponse = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        "contents": [
+                            {
+                                "parts": [
+                                    {"text": prompt}
+                                ]
+                            }
+                        ]
+                    })
+                }
+            );
+
+            if (aiResponse.ok) {
+                console.log(`✅ Google API key ${keyIndex + 1} succeeded`);
+                return await aiResponse.json();
+            } else if (aiResponse.status === 429) {
+                console.log(`❌ Google API key ${keyIndex + 1} quota exceeded (429), trying other keys`);
+                // 如果当前key配额用完，尝试其他key
+                const result = await tryOtherGoogleKeys(prompt, apiKeys, keyIndex);
+                if (result) return result;
+                // 如果所有 Google keys 都失败，尝试 OpenAI
+                throw new Error('All Google API keys failed');
+            } else {
+                throw new Error(`Google API error: ${aiResponse.status} ${aiResponse.statusText}`);
+            }
         } catch (error) {
-            console.log(`🔄 Primary Google key failed, trying other keys...`);
-            
+            console.error(`Google API key ${keyIndex + 1} failed:`, error);
             // 尝试其他 Google key 作为备用
-            const result = await tryOtherGoogleKeys(prompt, apiKeys, keyIndex);
-            if (result) return result;
-            
-            console.log('⚠️ All Google API keys failed');
+            try {
+                const result = await tryOtherGoogleKeys(prompt, apiKeys, keyIndex);
+                if (result) return result;
+            } catch (googleError) {
+                console.log('All Google API keys failed, trying OpenAI...');
+            }
+            // 如果所有 Google keys 都失败，尝试 OpenAI
+            throw new Error('All Google API keys failed');
         }
     }
     
     // 如果没有 Google API keys 或所有 Google keys 都失败，使用 OpenAI
     if (env.OpenAIAPIKey) {
-        console.log('🔄 Falling back to OpenAI API...');
         return await callOpenAI(prompt, env.OpenAIAPIKey);
     }
     
-    console.log('❌ All API keys exhausted');
     throw new Error('All API keys failed');
 }
 
 // 当主要key失败时，尝试其他 Google key
 async function tryOtherGoogleKeys(prompt: string, apiKeys: string[], excludeIndex: number): Promise<any> {
-    console.log('🔄 Trying backup Google keys...');
+    console.log('Trying backup Google keys...');
     
     for (let i = 0; i < apiKeys.length; i++) {
         if (i === excludeIndex) continue; // 跳过已经失败的key
         
+        const backupKey = apiKeys[i];
+        console.log(`Trying backup Google API key ${i + 1}/${apiKeys.length}`);
+        
         try {
-            return await callSingleGoogleAPI(prompt, apiKeys[i], i, apiKeys.length);
+            const aiResponse = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${backupKey}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        "contents": [
+                            {
+                                "parts": [
+                                    {"text": prompt}
+                                ]
+                            }
+                        ]
+                    })
+                }
+            );
+
+            if (aiResponse.ok) {
+                console.log(`✅ Backup Google API key ${i + 1} succeeded`);
+                return await aiResponse.json();
+            } else if (aiResponse.status === 429) {
+                console.log(`❌ Backup Google API key ${i + 1} also quota exceeded`);
+                continue;
+            } else {
+                console.log(`❌ Backup Google API key ${i + 1} error: ${aiResponse.status}`);
+                continue;
+            }
         } catch (error) {
-            console.log(`⚠️ Backup key ${i + 1} also failed`);
+            console.error(`Backup Google API key ${i + 1} failed:`, error);
             continue;
         }
     }
     
-    console.log('❌ All backup Google keys failed');
     return null; // 所有 Google keys 都失败
 }
 
@@ -289,7 +311,7 @@ export default {
                 return;
             }
 
-            console.log(`🔧 Available Google API keys: ${availableGoogleKeys.length}, OpenAI: ${hasOpenAI ? 'Yes' : 'No'}`);
+            console.log(`Available Google API keys: ${availableGoogleKeys.length}, OpenAI: ${hasOpenAI ? 'Yes' : 'No'}`);
 
             // 检查重复邮件
             const existing = await env.DB.prepare(
@@ -297,7 +319,7 @@ export default {
             ).bind(message_id).first();
 
             if (existing) {
-                console.log(`⚠️ Duplicate message detected: ${message_id}`);
+                console.log(`Duplicate message detected: ${message_id}`);
                 return;
             }
 
@@ -316,9 +338,9 @@ export default {
                 return;
             }
 
-            // 改进的 AI 提示词
+            // 改进的 AI 提示词（仅此处替换）
             const aiPrompt = `
-Email content: ${rawEmail}
+Email content (raw): ${rawEmail}
 
 ########################
 # CRITICAL FIRST STEP - EMAIL TYPE CLASSIFICATION
@@ -330,7 +352,7 @@ Goal: Classify the email as exactly one of:
 
 Normalization (for classification ONLY):
 - Case-insensitive matching.
-- Decode quoted-printable fragments if present (e.g., "=E5=AF=86=E7=A0=81=E9=87=8D=E7=BD=AE" → “密码重置” / “password reset”).
+- Decode quoted-printable fragments if present (e.g., "=E5=AF=86=E7=A0=81=E9=87=8D=E7=BD=AE" → "password reset"/"密码重置").
 - Trim excess whitespace and line breaks.
 
 Classification criteria (do NOT extract yet):
@@ -365,7 +387,7 @@ Immediate actions after classification (STRICT):
 
 2) Sender email address ONLY (for the "title" field):
 - HEADER PRIORITY RULE (STRICT):
-  a) FIRST search for the "Resent-From" header. If it looks like "Name <email@example.com>", extract ONLY the address inside the angle brackets. If it is a bare address, extract that bare address.
+  a) FIRST search for the "Resent-From" header. If formatted like "Name <email@example.com>", extract ONLY the address inside the angle brackets. If it is a bare address, extract that address.
   b) ONLY IF "Resent-From" does NOT exist, use the "From" header with the same rule.
 - NEVER output both. NEVER use "From" when "Resent-From" exists.
 - Output must be the email address only (no display name, no angle brackets).
@@ -402,8 +424,7 @@ If the email does not meet Type A criteria or a valid 6-digit login code cannot 
 ########################
 - Strictly follow the HEADER PRIORITY RULE (Resent-From > From).
 - Do not hallucinate or infer missing fields.
-- If uncertain, prefer {"codeExist": 0
-}
+- If uncertain, prefer {"codeExist": 0}.
 `;
 
             try {
@@ -498,7 +519,7 @@ If the email does not meet Type A criteria or a valid 6-digit login code cannot 
                     if (!extractedData) {
                         retryCount++;
                         if (retryCount >= maxRetries) {
-                            console.error("❌ Max retries reached. Unable to get valid AI response.");
+                            console.error("Max retries reached. Unable to get valid AI response.");
                         }
                     }
                 }
@@ -556,12 +577,12 @@ If the email does not meet Type A criteria or a valid 6-digit login code cannot 
 
                         // 记录处理时间
                         const processingTime = Date.now() - startTime;
-                        console.log(`✅ Email processed successfully in ${processingTime}ms with ${availableGoogleKeys.length} Google + ${hasOpenAI ? '1' : '0'} OpenAI API keys available`);
+                        console.log(`Email processed successfully in ${processingTime}ms with ${availableGoogleKeys.length} Google API keys + ${hasOpenAI ? '1' : '0'} OpenAI key available`);
                     } else {
-                        console.log("ℹ️ No login verification code found in this email.");
+                        console.log("No login verification code found in this email.");
                     }
                 } else {
-                    console.error("❌ Failed to extract data from AI response after retries.");
+                    console.error("Failed to extract data from AI response after retries.");
                 }
             } catch (e) {
                 console.error("Error calling AI or saving to database:", e);
