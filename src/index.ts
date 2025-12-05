@@ -402,70 +402,52 @@ export default {
                 return;
             }
 
-            const aiPrompt = `
+           const aiPrompt = `
   Email content: ${rawEmail}.
   
-  **STEP 1 - EMAIL TYPE CHECK (MUST DO FIRST):**
+  **YOUR TASK**: Analyze this email and return a JSON response.
   
-  Determine the email type by checking these rules IN ORDER:
+  **STEP 1 - DETERMINE EMAIL TYPE:**
   
-  **CHECK A - Is this a LOGIN email?**
-  If body contains ANY of these LOGIN indicators, this is a LOGIN email (Type: LOGIN):
-  - "如果你无意登录" | "如果你未尝试登录" | "If you were not trying to log in"
-  - "Log-in Code" | "login code" | "sign-in code" | "suspicious log-in"
-  - "登录验证码" | "可疑登录" | "两步验证" | "2FA"
-  - Subject contains: "你的 [Service] 代码为" (WITHOUT "密码") | "Your [Service] code is" | "Log-in Code"
+  Check these rules IN ORDER:
   
-  **CHECK B - Is this a PASSWORD RESET email?**
-  If NOT a LOGIN email, and ANY of these matches, this is PASSWORD RESET (Type: PASSWORD_RESET):
-  - Subject contains: "password reset" | "reset your password" | "password change" | "password recovery" | "密码重置" | "重置密码" | "修改密码" | "找回密码" | "密码重置验证码"
-  - Body contains: "如果你未尝试重置密码" | "if you did not try to reset your password"
+  **Rule A - LOGIN email?**
+  If the email contains ANY of these, it is a LOGIN email:
+  - Body has: "如果你无意登录" OR "如果你未尝试登录" OR "If you were not trying to log in"
+  - Body has: "Log-in Code" OR "login code" OR "sign-in code" OR "suspicious log-in"
+  - Body has: "登录验证码" OR "可疑登录" OR "两步验证" OR "2FA"
+  - Subject has: "代码为" (without "密码") OR "code is" OR "Log-in Code"
   
-  **CHECK C - Otherwise:**
-  If neither LOGIN nor PASSWORD_RESET, this is OTHER (Type: OTHER).
+  **Rule B - PASSWORD_RESET email?**
+  If NOT a LOGIN email, and the email contains ANY of these, it is a PASSWORD_RESET email:
+  - Subject has: "password reset" OR "密码重置" OR "重置密码" OR "修改密码" OR "找回密码" OR "密码重置验证码"
+  - Body has: "如果你未尝试重置密码" OR "if you did not try to reset your password"
   
-  **STEP 2 - EXTRACTION (REQUIRED FOR LOGIN AND PASSWORD_RESET TYPES):**
+  **Rule C - OTHER email?**
+  If neither LOGIN nor PASSWORD_RESET, it is OTHER.
   
-  For BOTH LOGIN and PASSWORD_RESET types, you MUST extract these fields:
+  **STEP 2 - EXTRACT INFORMATION:**
   
-  1. **code**: The 6-digit verification code from the email body or subject
-     - Remove spaces, hyphens, dots (e.g., "99 11 17" → "991117")
-     - Keep leading zeros
+  Find these in the email:
+  1. **code**: The 6-digit number (like "991117" or "123456")
+  2. **title**: The forwarder's email address from "Resent-From" header (NOT the From header like "noreply@openai.com")
   
-  2. **title**: The FORWARDER's email address (NOT the original sender):
-     - Look for **Resent-From** header in the raw email headers
-     - Example: if you see "Resent-From: john@gmail.com" or "Resent-From: John <john@gmail.com>", extract "john@gmail.com"
-     - Do NOT use From header addresses like "noreply@openai.com" or "otp@tm1.openai.com"
-     - Extract ONLY the email address part without name or angle brackets
+  **STEP 3 - RETURN JSON (NO MARKDOWN, JUST JSON):**
   
-  **OUTPUT (JSON only, no markdown fences, no extra text):**
+  If PASSWORD_RESET email (YOU MUST INCLUDE code AND title):
+  {"codeExist":0,"type":"PASSWORD_RESET","code":"THE_6_DIGIT_CODE","title":"FORWARDER_EMAIL"}
   
-  If Type is PASSWORD_RESET (MUST include code and title):
-  {
-    "codeExist": 0,
-    "type": "PASSWORD_RESET",
-    "code": "991117",
-    "title": "forwarder@example.com"
-  }
+  If LOGIN email:
+  {"codeExist":1,"type":"LOGIN","code":"THE_6_DIGIT_CODE","title":"FORWARDER_EMAIL","topic":"login verification"}
   
-  If Type is LOGIN (MUST include all fields):
-  {
-    "codeExist": 1,
-    "type": "LOGIN",
-    "code": "123456",
-    "title": "forwarder@example.com",
-    "topic": "account login verification"
-  }
+  If OTHER email or no code found:
+  {"codeExist":0}
   
-  If Type is OTHER or no code found:
-  {
-    "codeExist": 0
-  }
-  
-  **CRITICAL REMINDER**: 
-  - For PASSWORD_RESET emails, you MUST extract and return both "code" and "title" fields
-  - Look carefully in the email headers section for "Resent-From" to find the forwarder's address
-  - The code is usually a 6-digit number displayed prominently in the email body
+  **IMPORTANT**: 
+  - For PASSWORD_RESET emails, you MUST return "type", "code", and "title" fields
+  - Find the 6-digit code in the email body (it's usually displayed prominently)
+  - Find the forwarder email in the "Resent-From:" header line
+  - Return ONLY the JSON, no other text
 `;
 
             try {
