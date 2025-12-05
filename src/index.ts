@@ -4,8 +4,7 @@ This is the main file for the Auth Inbox Email Worker.
 created by: github@TooonyChen
 created on: 2024 Oct 07
 Last updated: 2024 Dec (Core version)
-Enhanced: 2025 Jan (API Rotation + OpenAI Backup)
-Updated: 2025 (Password Reset 3x Detection - Database Version v2)
+Updated: 2025 (GPT-4o-mini Only + Password Reset 3x Detection)
 */
 
 import indexHtml from './index.html';
@@ -14,19 +13,12 @@ export interface Env {
     DB: D1Database;
     barkTokens: string;
     barkUrl: string;
-    GoogleAPIKey: string;
-    GoogleAPIKey2?: string;
-    GoogleAPIKey3?: string;
-    GoogleAPIKey4?: string;
-    GoogleAPIKey5?: string;
-    GoogleAPIKey6?: string;
-    OpenAIAPIKey?: string;
+    OpenAIAPIKey: string;
     UseBark: string;
 }
 
 // ========== 数据库版本：密码重置历史记录 ==========
 
-// 检查是否连续收到相同的密码重置验证码
 async function checkPasswordResetRepeat(db: D1Database, email: string, code: string): Promise<boolean> {
     try {
         const existing = await db.prepare(
@@ -61,7 +53,6 @@ async function checkPasswordResetRepeat(db: D1Database, email: string, code: str
     }
 }
 
-// 清除密码重置历史记录
 async function clearPasswordResetHistory(db: D1Database, email?: string): Promise<void> {
     try {
         if (email) {
@@ -76,25 +67,28 @@ async function clearPasswordResetHistory(db: D1Database, email?: string): Promis
     }
 }
 
-// 处理AI返回结果
 async function processAIResponse(db: D1Database, result: any): Promise<any> {
-    console.log(`🔍 Processing AI result, type: ${result.type}, code: ${result.code}, title: ${result.title}`);
+    const emailType = result.emailType || "";
+    const code = result.code || "";
+    const title = result.forwarderEmail || "";
     
-    // 如果是密码重置类型，检查是否连续3次
-    if (result.type === "PASSWORD_RESET") {
-        if (!result.code || !result.title) {
-            console.log(`⚠️ PASSWORD_RESET but missing code or title, skipping...`);
+    console.log(`🔍 Type: ${emailType}, Code: ${code}, Email: ${title}`);
+    
+    // 密码重置类型
+    if (emailType === "PASSWORD_RESET") {
+        if (!code || !title) {
+            console.log(`⚠️ PASSWORD_RESET but missing code (${code}) or title (${title}), skipping...`);
             return { codeExist: 0 };
         }
         
-        const shouldExtract = await checkPasswordResetRepeat(db, result.title, result.code);
+        const shouldExtract = await checkPasswordResetRepeat(db, title, code);
         
         if (shouldExtract) {
-            console.log(`🔓 Password reset code repeated 3 times for ${result.title}, extracting!`);
-            await clearPasswordResetHistory(db, result.title);
+            console.log(`🔓 Password reset code repeated 3 times for ${title}, extracting!`);
+            await clearPasswordResetHistory(db, title);
             return {
-                title: result.title,
-                code: result.code,
+                title: title,
+                code: code,
                 topic: "Password reset verification (repeated 3 times)",
                 codeExist: 1
             };
@@ -103,18 +97,26 @@ async function processAIResponse(db: D1Database, result: any): Promise<any> {
         }
     }
     
-    // 登录类型，直接返回
-    if (result.type === "LOGIN" && result.codeExist === 1) {
-        return result;
+    // 登录类型
+    if (emailType === "LOGIN") {
+        if (!code || !title) {
+            console.log(`⚠️ LOGIN but missing code (${code}) or title (${title}), skipping...`);
+            return { codeExist: 0 };
+        }
+        return {
+            title: title,
+            code: code,
+            topic: "account login verification",
+            codeExist: 1
+        };
     }
     
-    // 其他情况直接返回原结果
-    return result;
+    // 其他情况
+    return { codeExist: 0 };
 }
 
-// ========== 数据库版本结束 ==========
+// ========== 工具函数 ==========
 
-// HTML 转义函数
 function escapeHtml(text: string): string {
     const map: { [key: string]: string } = {
         '&': '&amp;',
@@ -126,7 +128,6 @@ function escapeHtml(text: string): string {
     return text.replace(/[&<>"']/g, m => map[m]);
 }
 
-// 计算剩余时间
 function getTimeRemaining(createdAt: string): string {
     const created = new Date(createdAt);
     const now = new Date();
@@ -138,63 +139,10 @@ function getTimeRemaining(createdAt: string): string {
     return `<span style="color: green;">剩余 ${remaining} 分钟</span>`;
 }
 
-// 获取可用的 Google API Keys
-function getAvailableAPIKeys(env: Env): string[] {
-    const keys = [];
-    if (env.GoogleAPIKey) keys.push(env.GoogleAPIKey);
-    if (env.GoogleAPIKey2) keys.push(env.GoogleAPIKey2);
-    if (env.GoogleAPIKey3) keys.push(env.GoogleAPIKey3);
-    if (env.GoogleAPIKey4) keys.push(env.GoogleAPIKey4);
-    if (env.GoogleAPIKey5) keys.push(env.GoogleAPIKey5);
-    if (env.GoogleAPIKey6) keys.push(env.GoogleAPIKey6);
-    return keys;
-}
+// ========== OpenAI API 调用 ==========
 
-// 获取下一个要使用的API Key索引
-function getNextKeyIndex(totalKeys: number): number {
-    const minutesSinceEpoch = Math.floor(Date.now() / (1000 * 60));
-    return minutesSinceEpoch % totalKeys;
-}
-
-// 调用单个 Google API Key
-async function callSingleGoogleAPI(prompt: string, apiKey: string, keyIndex: number, totalKeys: number): Promise<any> {
-    console.log(`🔄 Calling Google API key ${keyIndex + 1}/${totalKeys}`);
-    
-    const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-thinking-exp-01-21:generateContent?key=${apiKey}`,
-        {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                "contents": [
-                    {
-                        "parts": [
-                            {"text": prompt}
-                        ]
-                    }
-                ]
-            })
-        }
-    );
-
-    if (!response.ok) {
-        if (response.status === 429) {
-            console.log(`❌ Google API key ${keyIndex + 1} quota exceeded (429)`);
-        } else {
-            console.log(`❌ Google API key ${keyIndex + 1} error: ${response.status} ${response.statusText}`);
-        }
-        throw new Error(`Google API key ${keyIndex + 1} failed: ${response.status}`);
-    }
-
-    console.log(`✅ Google API key ${keyIndex + 1} succeeded`);
-    return await response.json();
-}
-
-// 调用 OpenAI API
 async function callOpenAI(prompt: string, apiKey: string): Promise<any> {
-    console.log('🔄 Using OpenAI API as backup...');
+    console.log('🔄 Calling OpenAI GPT-4o-mini...');
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -206,12 +154,16 @@ async function callOpenAI(prompt: string, apiKey: string): Promise<any> {
             model: 'gpt-4o-mini',
             messages: [
                 {
+                    role: 'system',
+                    content: 'You are a JSON extractor. Always respond with valid JSON only, no markdown, no explanation.'
+                },
+                {
                     role: 'user',
                     content: prompt
                 }
             ],
-            temperature: 0.1,
-            max_tokens: 1000
+            temperature: 0,
+            max_tokens: 200
         })
     });
 
@@ -223,76 +175,13 @@ async function callOpenAI(prompt: string, apiKey: string): Promise<any> {
     const data = await response.json();
     console.log('✅ OpenAI API succeeded');
     
-    return {
-        candidates: [{
-            content: {
-                parts: [{
-                    text: data.choices[0].message.content
-                }]
-            }
-        }]
-    };
-}
-
-// 轮流调用 AI API
-async function callAIWithRoundRobin(prompt: string, env: Env): Promise<any> {
-    const apiKeys = getAvailableAPIKeys(env);
-    
-    if (apiKeys.length === 0 && !env.OpenAIAPIKey) {
-        console.log('❌ No API keys available');
-        throw new Error('No API keys available');
-    }
-    
-    console.log(`🔧 Available: ${apiKeys.length} Google API keys, OpenAI: ${env.OpenAIAPIKey ? 'Yes' : 'No'}`);
-    
-    if (apiKeys.length > 0) {
-        const keyIndex = getNextKeyIndex(apiKeys.length);
-        const currentKey = apiKeys[keyIndex];
-        
-        try {
-            return await callSingleGoogleAPI(prompt, currentKey, keyIndex, apiKeys.length);
-        } catch (error) {
-            console.log(`🔄 Primary Google key failed, trying other keys...`);
-            
-            const result = await tryOtherGoogleKeys(prompt, apiKeys, keyIndex);
-            if (result) return result;
-            
-            console.log('⚠️ All Google API keys failed');
-        }
-    }
-    
-    if (env.OpenAIAPIKey) {
-        console.log('🔄 Falling back to OpenAI API...');
-        return await callOpenAI(prompt, env.OpenAIAPIKey);
-    }
-    
-    console.log('❌ All API keys exhausted');
-    throw new Error('All API keys failed');
-}
-
-// 当主要key失败时，尝试其他 Google key
-async function tryOtherGoogleKeys(prompt: string, apiKeys: string[], excludeIndex: number): Promise<any> {
-    console.log('🔄 Trying backup Google keys...');
-    
-    for (let i = 0; i < apiKeys.length; i++) {
-        if (i === excludeIndex) continue;
-        
-        try {
-            return await callSingleGoogleAPI(prompt, apiKeys[i], i, apiKeys.length);
-        } catch (error) {
-            console.log(`⚠️ Backup key ${i + 1} also failed`);
-            continue;
-        }
-    }
-    
-    console.log('❌ All backup Google keys failed');
-    return null;
+    return data.choices[0].message.content;
 }
 
 export default {
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
         try {
-            // 自动清理过期验证码
+            // 自动清理过期验证码（超过10分钟的）
             const cleanupResult = await env.DB.prepare(
                 `DELETE FROM code_mails WHERE datetime(created_at) < datetime('now', '-10 minutes')`
             ).run();
@@ -306,6 +195,7 @@ export default {
                 `DELETE FROM password_reset_history WHERE datetime(updated_at) < datetime('now', '-30 minutes')`
             ).run();
             
+            // 获取所有验证码数据
             const { results } = await env.DB.prepare(
                 'SELECT from_org, to_addr, topic, code, created_at FROM code_mails ORDER BY created_at DESC'
             ).all();
@@ -335,6 +225,7 @@ export default {
                 </tr>`;
             }
             
+            // 如果没有数据，显示提示
             if (results.length === 0) {
                 dataHtml = `<tr><td colspan="4" style="text-align: center; padding: 40px; color: #6c757d;">
                     暂无验证码数据
@@ -369,16 +260,15 @@ export default {
         
         try {
             const useBark = env.UseBark.toLowerCase() === 'true';
-            const availableGoogleKeys = getAvailableAPIKeys(env);
-            const hasOpenAI = !!env.OpenAIAPIKey;
             
-            if (availableGoogleKeys.length === 0 && !hasOpenAI) {
-                console.error('No API keys available');
+            if (!env.OpenAIAPIKey) {
+                console.error('❌ OpenAI API key not configured');
                 return;
             }
 
-            console.log(`🔧 Available Google API keys: ${availableGoogleKeys.length}, OpenAI: ${hasOpenAI ? 'Yes' : 'No'}`);
+            console.log('🔧 Using OpenAI GPT-4o-mini');
 
+            // 检查重复邮件
             const existing = await env.DB.prepare(
                 'SELECT 1 FROM raw_mails WHERE message_id = ?'
             ).bind(message_id).first();
@@ -390,6 +280,7 @@ export default {
 
             const rawEmail = await new Response(message.raw).text();
 
+            // 保存原始邮件
             const {success} = await env.DB.prepare(
                 `INSERT INTO raw_mails (from_addr, to_addr, raw, message_id) VALUES (?, ?, ?, ?)`
             ).bind(
@@ -402,53 +293,19 @@ export default {
                 return;
             }
 
-           const aiPrompt = `
-  Email content: ${rawEmail}.
-  
-  **YOUR TASK**: Analyze this email and return a JSON response.
-  
-  **STEP 1 - DETERMINE EMAIL TYPE:**
-  
-  Check these rules IN ORDER:
-  
-  **Rule A - LOGIN email?**
-  If the email contains ANY of these, it is a LOGIN email:
-  - Body has: "如果你无意登录" OR "如果你未尝试登录" OR "If you were not trying to log in"
-  - Body has: "Log-in Code" OR "login code" OR "sign-in code" OR "suspicious log-in"
-  - Body has: "登录验证码" OR "可疑登录" OR "两步验证" OR "2FA"
-  - Subject has: "代码为" (without "密码") OR "code is" OR "Log-in Code"
-  
-  **Rule B - PASSWORD_RESET email?**
-  If NOT a LOGIN email, and the email contains ANY of these, it is a PASSWORD_RESET email:
-  - Subject has: "password reset" OR "密码重置" OR "重置密码" OR "修改密码" OR "找回密码" OR "密码重置验证码"
-  - Body has: "如果你未尝试重置密码" OR "if you did not try to reset your password"
-  
-  **Rule C - OTHER email?**
-  If neither LOGIN nor PASSWORD_RESET, it is OTHER.
-  
-  **STEP 2 - EXTRACT INFORMATION:**
-  
-  Find these in the email:
-  1. **code**: The 6-digit number (like "991117" or "123456")
-  2. **title**: The forwarder's email address from "Resent-From" header (NOT the From header like "noreply@openai.com")
-  
-  **STEP 3 - RETURN JSON (NO MARKDOWN, JUST JSON):**
-  
-  If PASSWORD_RESET email (YOU MUST INCLUDE code AND title):
-  {"codeExist":0,"type":"PASSWORD_RESET","code":"THE_6_DIGIT_CODE","title":"FORWARDER_EMAIL"}
-  
-  If LOGIN email:
-  {"codeExist":1,"type":"LOGIN","code":"THE_6_DIGIT_CODE","title":"FORWARDER_EMAIL","topic":"login verification"}
-  
-  If OTHER email or no code found:
-  {"codeExist":0}
-  
-  **IMPORTANT**: 
-  - For PASSWORD_RESET emails, you MUST return "type", "code", and "title" fields
-  - Find the 6-digit code in the email body (it's usually displayed prominently)
-  - Find the forwarder email in the "Resent-From:" header line
-  - Return ONLY the JSON, no other text
-`;
+            // GPT-4o-mini 优化的提示词
+            const aiPrompt = `Extract from this email:
+
+EMAIL:
+${rawEmail}
+
+RULES:
+1. emailType: "LOGIN" if contains "如果你无意登录" or "Log-in Code" or "suspicious log-in" or "登录验证码". "PASSWORD_RESET" if contains "密码重置" or "重置密码" or "如果你未尝试重置密码". Otherwise "OTHER".
+2. code: The 6-digit number from email body.
+3. forwarderEmail: Email address from "Resent-From:" header only (not "From:" header).
+
+Return JSON only:
+{"emailType":"TYPE","code":"123456","forwarderEmail":"user@example.com"}`;
 
             try {
                 const maxRetries = 3;
@@ -457,83 +314,45 @@ export default {
 
                 while (retryCount < maxRetries && !extractedData) {
                     try {
-                        const aiData = await callAIWithRoundRobin(aiPrompt, env);
-                        console.log(`AI response attempt ${retryCount + 1}:`, JSON.stringify(aiData));
+                        const aiResponse = await callOpenAI(aiPrompt, env.OpenAIAPIKey);
+                        console.log(`AI response attempt ${retryCount + 1}: "${aiResponse}"`);
 
-                        if (
-                            aiData &&
-                            aiData.candidates &&
-                            aiData.candidates[0] &&
-                            aiData.candidates[0].content &&
-                            aiData.candidates[0].content.parts &&
-                            aiData.candidates[0].content.parts[0]
-                        ) {
-                            let extractedText = aiData.candidates[0].content.parts[0].text;
-                            console.log(`Extracted Text before parsing: "${extractedText}"`);
+                        // 清理并解析 JSON
+                        let cleanedResponse = aiResponse.trim();
+                        
+                        // 移除可能的 markdown 代码块
+                        const jsonMatch = cleanedResponse.match(/```json\s*([\s\S]*?)\s*```/);
+                        if (jsonMatch && jsonMatch[1]) {
+                            cleanedResponse = jsonMatch[1].trim();
+                        }
+                        
+                        // 提取 JSON 对象
+                        const jsonObjectMatch = cleanedResponse.match(/\{[\s\S]*\}/);
+                        if (jsonObjectMatch) {
+                            cleanedResponse = jsonObjectMatch[0];
+                        }
 
-                            const jsonMatch = extractedText.match(/```json\s*([\s\S]*?)\s*```/);
-                            if (jsonMatch && jsonMatch[1]) {
-                                extractedText = jsonMatch[1].trim();
-                            } else {
-                                extractedText = extractedText.trim();
-                            }
-
-                            try {
-                                extractedData = JSON.parse(extractedText);
-                                console.log(`Parsed Extracted Data:`, JSON.stringify(extractedData));
-                                
-                                // 使用数据库版本的 processAIResponse
-                                extractedData = await processAIResponse(env.DB, extractedData);
-                                console.log(`Processed Data (after 3x check):`, JSON.stringify(extractedData));
-                                
-                                if (extractedData.codeExist === 1) {
-                                    if (!extractedData.title || !extractedData.code || !extractedData.topic) {
-                                        console.error("Missing required fields in AI response");
-                                        extractedData = null;
-                                        throw new Error("Invalid data structure");
-                                    }
+                        try {
+                            const parsedData = JSON.parse(cleanedResponse);
+                            console.log(`Parsed Data:`, JSON.stringify(parsedData));
+                            
+                            // 处理结果
+                            extractedData = await processAIResponse(env.DB, parsedData);
+                            console.log(`Processed Data:`, JSON.stringify(extractedData));
+                            
+                            if (extractedData.codeExist === 1) {
+                                if (!extractedData.title || !extractedData.code || !extractedData.topic) {
+                                    console.error("Missing required fields in processed response");
+                                    extractedData = null;
+                                    throw new Error("Invalid data structure");
                                 }
-                            } catch (parseError) {
-                                console.error("JSON parsing error:", parseError);
-                                throw parseError;
                             }
-                        } else {
-                            throw new Error("AI response is missing expected data structure");
+                        } catch (parseError) {
+                            console.error("JSON parsing error:", parseError);
+                            throw parseError;
                         }
                     } catch (error) {
                         console.error(`Attempt ${retryCount + 1} failed:`, error);
-                        
-                        if (retryCount === 0 && env.OpenAIAPIKey) {
-                            try {
-                                console.log('🔄 Trying OpenAI as fallback...');
-                                const aiData = await callOpenAI(aiPrompt, env.OpenAIAPIKey);
-                                
-                                if (
-                                    aiData &&
-                                    aiData.candidates &&
-                                    aiData.candidates[0] &&
-                                    aiData.candidates[0].content &&
-                                    aiData.candidates[0].content.parts &&
-                                    aiData.candidates[0].content.parts[0]
-                                ) {
-                                    let extractedText = aiData.candidates[0].content.parts[0].text;
-                                    
-                                    const jsonMatch = extractedText.match(/```json\s*([\s\S]*?)\s*```/);
-                                    if (jsonMatch && jsonMatch[1]) {
-                                        extractedText = jsonMatch[1].trim();
-                                    } else {
-                                        extractedText = extractedText.trim();
-                                    }
-
-                                    extractedData = JSON.parse(extractedText);
-                                    extractedData = await processAIResponse(env.DB, extractedData);
-                                    console.log(`OpenAI Parsed Data:`, JSON.stringify(extractedData));
-                                    break;
-                                }
-                            } catch (openaiError) {
-                                console.error('OpenAI fallback failed:', openaiError);
-                            }
-                        }
                         
                         if (retryCount < maxRetries - 1) {
                             await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
@@ -564,6 +383,7 @@ export default {
                             console.error(`Failed to save extracted code for message from ${message.from} to ${message.to}`);
                         }
 
+                        // 发送 Bark 通知
                         if (useBark) {
                             const barkUrl = env.barkUrl;
                             const barkTokens = env.barkTokens
