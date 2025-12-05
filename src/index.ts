@@ -5,7 +5,7 @@ created by: github@TooonyChen
 created on: 2024 Oct 07
 Last updated: 2024 Dec (Core version)
 Enhanced: 2025 Jan (API Rotation + OpenAI Backup)
-Updated: 2025 (Password Reset 3x Detection - Database Version)
+Updated: 2025 (Password Reset 3x Detection - Database Version v2)
 */
 
 import indexHtml from './index.html';
@@ -24,18 +24,16 @@ export interface Env {
     UseBark: string;
 }
 
-// ========== 修改：使用数据库存储密码重置历史 ==========
+// ========== 数据库版本：密码重置历史记录 ==========
 
-// 检查是否连续收到相同的密码重置验证码（数据库版本）
+// 检查是否连续收到相同的密码重置验证码
 async function checkPasswordResetRepeat(db: D1Database, email: string, code: string): Promise<boolean> {
     try {
-        // 查询现有记录
         const existing = await db.prepare(
             'SELECT code, count FROM password_reset_history WHERE email = ?'
         ).bind(email).first();
 
         if (!existing) {
-            // 新记录，插入
             await db.prepare(
                 'INSERT INTO password_reset_history (email, code, count, updated_at) VALUES (?, ?, 1, CURRENT_TIMESTAMP)'
             ).bind(email, code).run();
@@ -44,7 +42,6 @@ async function checkPasswordResetRepeat(db: D1Database, email: string, code: str
         }
 
         if (existing.code === code) {
-            // 相同验证码，增加计数
             const newCount = (existing.count as number) + 1;
             await db.prepare(
                 'UPDATE password_reset_history SET count = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?'
@@ -52,7 +49,6 @@ async function checkPasswordResetRepeat(db: D1Database, email: string, code: str
             console.log(`🔒 Password reset for ${email}: same code, count: ${newCount}/3`);
             return newCount >= 3;
         } else {
-            // 不同验证码，重置计数
             await db.prepare(
                 'UPDATE password_reset_history SET code = ?, count = 1, updated_at = CURRENT_TIMESTAMP WHERE email = ?'
             ).bind(code, email).run();
@@ -65,7 +61,7 @@ async function checkPasswordResetRepeat(db: D1Database, email: string, code: str
     }
 }
 
-// 清除密码重置历史记录（数据库版本）
+// 清除密码重置历史记录
 async function clearPasswordResetHistory(db: D1Database, email?: string): Promise<void> {
     try {
         if (email) {
@@ -80,14 +76,20 @@ async function clearPasswordResetHistory(db: D1Database, email?: string): Promis
     }
 }
 
-// 处理AI返回结果（数据库版本）
+// 处理AI返回结果
 async function processAIResponse(db: D1Database, result: any): Promise<any> {
+    console.log(`🔍 Processing AI result, type: ${result.type}, code: ${result.code}, title: ${result.title}`);
+    
     // 如果是密码重置类型，检查是否连续3次
-    if (result.type === "PASSWORD_RESET" && result.code && result.title) {
+    if (result.type === "PASSWORD_RESET") {
+        if (!result.code || !result.title) {
+            console.log(`⚠️ PASSWORD_RESET but missing code or title, skipping...`);
+            return { codeExist: 0 };
+        }
+        
         const shouldExtract = await checkPasswordResetRepeat(db, result.title, result.code);
         
         if (shouldExtract) {
-            // 连续3次相同验证码，进行提取
             console.log(`🔓 Password reset code repeated 3 times for ${result.title}, extracting!`);
             await clearPasswordResetHistory(db, result.title);
             return {
@@ -97,9 +99,13 @@ async function processAIResponse(db: D1Database, result: any): Promise<any> {
                 codeExist: 1
             };
         } else {
-            // 未达到3次，不提取
             return { codeExist: 0 };
         }
+    }
+    
+    // 登录类型，直接返回
+    if (result.type === "LOGIN" && result.codeExist === 1) {
+        return result;
     }
     
     // 其他情况直接返回原结果
@@ -295,11 +301,10 @@ export default {
                 console.log(`Auto cleaned ${cleanupResult.meta.changes} expired codes`);
             }
 
-            // ========== 新增：清理过期的密码重置历史（超过30分钟） ==========
+            // 清理过期的密码重置历史（超过30分钟）
             await env.DB.prepare(
                 `DELETE FROM password_reset_history WHERE datetime(updated_at) < datetime('now', '-30 minutes')`
             ).run();
-            // ========== 新增结束 ==========
             
             const { results } = await env.DB.prepare(
                 'SELECT from_org, to_addr, topic, code, created_at FROM code_mails ORDER BY created_at DESC'
@@ -402,50 +407,65 @@ export default {
   
   **STEP 1 - EMAIL TYPE CHECK (MUST DO FIRST):**
   
-  Check if this is a PASSWORD RESET email. If ANY of the following matches, mark as PASSWORD_RESET type:
+  Determine the email type by checking these rules IN ORDER:
   
+  **CHECK A - Is this a LOGIN email?**
+  If body contains ANY of these LOGIN indicators, this is a LOGIN email (Type: LOGIN):
+  - "如果你无意登录" | "如果你未尝试登录" | "If you were not trying to log in"
+  - "Log-in Code" | "login code" | "sign-in code" | "suspicious log-in"
+  - "登录验证码" | "可疑登录" | "两步验证" | "2FA"
+  - Subject contains: "你的 [Service] 代码为" (WITHOUT "密码") | "Your [Service] code is" | "Log-in Code"
+  
+  **CHECK B - Is this a PASSWORD RESET email?**
+  If NOT a LOGIN email, and ANY of these matches, this is PASSWORD RESET (Type: PASSWORD_RESET):
   - Subject contains: "password reset" | "reset your password" | "password change" | "password recovery" | "密码重置" | "重置密码" | "修改密码" | "找回密码" | "密码重置验证码"
   - Body contains: "如果你未尝试重置密码" | "if you did not try to reset your password"
   
-  **EXCEPTION**: If body contains "如果你无意登录" | "如果你未尝试登录" | "If you were not trying to log in", this is a LOGIN email, NOT password reset — continue to extraction as LOGIN type.
+  **CHECK C - Otherwise:**
+  If neither LOGIN nor PASSWORD_RESET, this is OTHER (Type: OTHER).
   
-  **STEP 2 - LOGIN CODE EXTRACTION:**
+  **STEP 2 - EXTRACTION (REQUIRED FOR LOGIN AND PASSWORD_RESET TYPES):**
   
-  Only extract codes from LOGIN/SIGN-IN verification emails. Valid login indicators include:
-  - Subject: "你的 [Service] 代码为" | "Your [Service] code is" | "Log-in Code"
-  - Body: "log-in code" | "login code" | "sign-in" | "suspicious log-in" | "登录验证码" | "可疑登录" | "无意登录" | "两步验证" | "2FA"
+  For BOTH LOGIN and PASSWORD_RESET types, you MUST extract these fields:
   
-  If this is a login email, extract:
-  1. The 6-digit verification code (normalize: remove spaces/hyphens/dots, keep leading zeros).
-  2. The FORWARDER's email address (the person who forwarded this email, NOT the original sender):
-     - FIRST check for **Resent-From** header — this contains the forwarder's address.
-     - If no Resent-From, check for **X-Forwarded-From** or similar forwarding headers.
-     - Extract only the email address part (e.g., from "Name <user@example.com>" extract "user@example.com").
-     - Do NOT use the original From header (e.g., do NOT extract "noreply@openai.com" or "otp@tm1.openai.com").
-  3. A brief topic summary.
+  1. **code**: The 6-digit verification code from the email body or subject
+     - Remove spaces, hyphens, dots (e.g., "99 11 17" → "991117")
+     - Keep leading zeros
   
-  **OUTPUT (JSON only, no markdown fences):**
+  2. **title**: The FORWARDER's email address (NOT the original sender):
+     - Look for **Resent-From** header in the raw email headers
+     - Example: if you see "Resent-From: john@gmail.com" or "Resent-From: John <john@gmail.com>", extract "john@gmail.com"
+     - Do NOT use From header addresses like "noreply@openai.com" or "otp@tm1.openai.com"
+     - Extract ONLY the email address part without name or angle brackets
   
-  If PASSWORD_RESET type detected (MUST extract code and title for tracking):
+  **OUTPUT (JSON only, no markdown fences, no extra text):**
+  
+  If Type is PASSWORD_RESET (MUST include code and title):
   {
     "codeExist": 0,
     "type": "PASSWORD_RESET",
-    "code": "The 6-digit verification code from the email",
-    "title": "Forwarder's email address (from Resent-From header)"
+    "code": "991117",
+    "title": "forwarder@example.com"
   }
   
-  If advertisement or no code found:
+  If Type is LOGIN (MUST include all fields):
+  {
+    "codeExist": 1,
+    "type": "LOGIN",
+    "code": "123456",
+    "title": "forwarder@example.com",
+    "topic": "account login verification"
+  }
+  
+  If Type is OTHER or no code found:
   {
     "codeExist": 0
   }
   
-  If valid LOGIN code found:
-  {
-    "title": "Forwarder's email address only — the person who forwarded this email (e.g., 'user@example.com')",
-    "code": "Extracted 6-digit login code (e.g., '123456')",
-    "topic": "Brief topic summary (e.g., 'account login verification')",
-    "codeExist": 1
-  }
+  **CRITICAL REMINDER**: 
+  - For PASSWORD_RESET emails, you MUST extract and return both "code" and "title" fields
+  - Look carefully in the email headers section for "Resent-From" to find the forwarder's address
+  - The code is usually a 6-digit number displayed prominently in the email body
 `;
 
             try {
@@ -456,7 +476,7 @@ export default {
                 while (retryCount < maxRetries && !extractedData) {
                     try {
                         const aiData = await callAIWithRoundRobin(aiPrompt, env);
-                        console.log(`AI response attempt ${retryCount + 1}:`, aiData);
+                        console.log(`AI response attempt ${retryCount + 1}:`, JSON.stringify(aiData));
 
                         if (
                             aiData &&
@@ -478,12 +498,11 @@ export default {
 
                             try {
                                 extractedData = JSON.parse(extractedText);
-                                console.log(`Parsed Extracted Data:`, extractedData);
+                                console.log(`Parsed Extracted Data:`, JSON.stringify(extractedData));
                                 
-                                // ========== 修改：使用数据库版本的 processAIResponse ==========
+                                // 使用数据库版本的 processAIResponse
                                 extractedData = await processAIResponse(env.DB, extractedData);
-                                console.log(`Processed Data (after 3x check):`, extractedData);
-                                // ========== 修改结束 ==========
+                                console.log(`Processed Data (after 3x check):`, JSON.stringify(extractedData));
                                 
                                 if (extractedData.codeExist === 1) {
                                     if (!extractedData.title || !extractedData.code || !extractedData.topic) {
@@ -525,10 +544,8 @@ export default {
                                     }
 
                                     extractedData = JSON.parse(extractedText);
-                                    // ========== 修改：OpenAI 结果也使用数据库版本 ==========
                                     extractedData = await processAIResponse(env.DB, extractedData);
-                                    // ========== 修改结束 ==========
-                                    console.log(`OpenAI Parsed Data:`, extractedData);
+                                    console.log(`OpenAI Parsed Data:`, JSON.stringify(extractedData));
                                     break;
                                 }
                             } catch (openaiError) {
