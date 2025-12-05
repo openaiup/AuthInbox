@@ -5,6 +5,7 @@ created by: github@TooonyChen
 created on: 2024 Oct 07
 Last updated: 2024 Dec (Core version)
 Enhanced: 2025 Jan (API Rotation + OpenAI Backup)
+Updated: 2025 (Password Reset 3x Detection)
 */
 
 import indexHtml from './index.html';
@@ -14,14 +15,70 @@ export interface Env {
     barkTokens: string;
     barkUrl: string;
     GoogleAPIKey: string;
-    GoogleAPIKey2?: string;  // 第二个 API Key（可选）
-    GoogleAPIKey3?: string;  // 第三个 API Key（可选）
-    GoogleAPIKey4?: string;  // 第四个 API Key（可选）
-    GoogleAPIKey5?: string;  // 第五个 API Key（可选）
-    GoogleAPIKey6?: string;  // 第六个 API Key（可选）
-    OpenAIAPIKey?: string;   // OpenAI API Key（可选，作为备份）
+    GoogleAPIKey2?: string;
+    GoogleAPIKey3?: string;
+    GoogleAPIKey4?: string;
+    GoogleAPIKey5?: string;
+    GoogleAPIKey6?: string;
+    OpenAIAPIKey?: string;
     UseBark: string;
 }
+
+// ========== 新增：密码重置验证码历史记录 ==========
+const passwordResetHistory: { [email: string]: { code: string; count: number } } = {};
+
+// 新增：检查是否连续收到相同的密码重置验证码
+function checkPasswordResetRepeat(email: string, code: string): boolean {
+    if (!passwordResetHistory[email]) {
+        passwordResetHistory[email] = { code: code, count: 1 };
+        return false;
+    }
+    
+    if (passwordResetHistory[email].code === code) {
+        passwordResetHistory[email].count++;
+    } else {
+        passwordResetHistory[email] = { code: code, count: 1 };
+    }
+    
+    return passwordResetHistory[email].count >= 3;
+}
+
+// 新增：清除历史记录
+function clearPasswordResetHistory(email?: string): void {
+    if (email) {
+        delete passwordResetHistory[email];
+    } else {
+        Object.keys(passwordResetHistory).forEach(key => delete passwordResetHistory[key]);
+    }
+}
+
+// 新增：处理AI返回结果，判断是否需要提取密码重置验证码
+function processAIResponse(result: any): any {
+    // 如果是密码重置类型，检查是否连续3次
+    if (result.type === "PASSWORD_RESET" && result.code && result.title) {
+        const shouldExtract = checkPasswordResetRepeat(result.title, result.code);
+        
+        if (shouldExtract) {
+            // 连续3次相同验证码，进行提取
+            console.log(`🔓 Password reset code repeated 3 times for ${result.title}, extracting...`);
+            clearPasswordResetHistory(result.title);
+            return {
+                title: result.title,
+                code: result.code,
+                topic: "Password reset verification (repeated 3 times)",
+                codeExist: 1
+            };
+        } else {
+            // 未达到3次，不提取
+            console.log(`🔒 Password reset code for ${result.title}, count: ${passwordResetHistory[result.title]?.count || 1}/3`);
+            return { codeExist: 0 };
+        }
+    }
+    
+    // 其他情况直接返回原结果
+    return result;
+}
+// ========== 新增部分结束 ==========
 
 // HTML 转义函数
 function escapeHtml(text: string): string {
@@ -61,7 +118,6 @@ function getAvailableAPIKeys(env: Env): string[] {
 
 // 获取下一个要使用的API Key索引（基于时间轮换，无需数据库表）
 function getNextKeyIndex(totalKeys: number): number {
-    // 使用当前时间戳进行轮换，每分钟切换一次
     const minutesSinceEpoch = Math.floor(Date.now() / (1000 * 60));
     return minutesSinceEpoch % totalKeys;
 }
@@ -133,7 +189,6 @@ async function callOpenAI(prompt: string, apiKey: string): Promise<any> {
     const data = await response.json();
     console.log('✅ OpenAI API succeeded');
     
-    // 转换 OpenAI 响应格式以匹配现有的处理逻辑
     return {
         candidates: [{
             content: {
@@ -145,7 +200,7 @@ async function callOpenAI(prompt: string, apiKey: string): Promise<any> {
     };
 }
 
-// 轮流调用 AI API（每次都轮换，不是失败才切换）
+// 轮流调用 AI API
 async function callAIWithRoundRobin(prompt: string, env: Env): Promise<any> {
     const apiKeys = getAvailableAPIKeys(env);
     
@@ -156,9 +211,7 @@ async function callAIWithRoundRobin(prompt: string, env: Env): Promise<any> {
     
     console.log(`🔧 Available: ${apiKeys.length} Google API keys, OpenAI: ${env.OpenAIAPIKey ? 'Yes' : 'No'}`);
     
-    // 如果有 Google API keys，优先使用它们
     if (apiKeys.length > 0) {
-        // 获取本次要使用的key索引（基于时间轮换）
         const keyIndex = getNextKeyIndex(apiKeys.length);
         const currentKey = apiKeys[keyIndex];
         
@@ -167,7 +220,6 @@ async function callAIWithRoundRobin(prompt: string, env: Env): Promise<any> {
         } catch (error) {
             console.log(`🔄 Primary Google key failed, trying other keys...`);
             
-            // 尝试其他 Google key 作为备用
             const result = await tryOtherGoogleKeys(prompt, apiKeys, keyIndex);
             if (result) return result;
             
@@ -175,7 +227,6 @@ async function callAIWithRoundRobin(prompt: string, env: Env): Promise<any> {
         }
     }
     
-    // 如果没有 Google API keys 或所有 Google keys 都失败，使用 OpenAI
     if (env.OpenAIAPIKey) {
         console.log('🔄 Falling back to OpenAI API...');
         return await callOpenAI(prompt, env.OpenAIAPIKey);
@@ -190,7 +241,7 @@ async function tryOtherGoogleKeys(prompt: string, apiKeys: string[], excludeInde
     console.log('🔄 Trying backup Google keys...');
     
     for (let i = 0; i < apiKeys.length; i++) {
-        if (i === excludeIndex) continue; // 跳过已经失败的key
+        if (i === excludeIndex) continue;
         
         try {
             return await callSingleGoogleAPI(prompt, apiKeys[i], i, apiKeys.length);
@@ -201,13 +252,12 @@ async function tryOtherGoogleKeys(prompt: string, apiKeys: string[], excludeInde
     }
     
     console.log('❌ All backup Google keys failed');
-    return null; // 所有 Google keys 都失败
+    return null;
 }
 
 export default {
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
         try {
-            // 自动清理过期验证码（超过10分钟的）
             const cleanupResult = await env.DB.prepare(
                 `DELETE FROM code_mails WHERE datetime(created_at) < datetime('now', '-10 minutes')`
             ).run();
@@ -216,7 +266,6 @@ export default {
                 console.log(`Auto cleaned ${cleanupResult.meta.changes} expired codes`);
             }
             
-            // 获取所有验证码数据
             const { results } = await env.DB.prepare(
                 'SELECT from_org, to_addr, topic, code, created_at FROM code_mails ORDER BY created_at DESC'
             ).all();
@@ -246,7 +295,6 @@ export default {
                 </tr>`;
             }
             
-            // 如果没有数据，显示提示
             if (results.length === 0) {
                 dataHtml = `<tr><td colspan="4" style="text-align: center; padding: 40px; color: #6c757d;">
                     暂无验证码数据
@@ -291,7 +339,6 @@ export default {
 
             console.log(`🔧 Available Google API keys: ${availableGoogleKeys.length}, OpenAI: ${hasOpenAI ? 'Yes' : 'No'}`);
 
-            // 检查重复邮件
             const existing = await env.DB.prepare(
                 'SELECT 1 FROM raw_mails WHERE message_id = ?'
             ).bind(message_id).first();
@@ -303,7 +350,6 @@ export default {
 
             const rawEmail = await new Response(message.raw).text();
 
-            // 保存原始邮件
             const {success} = await env.DB.prepare(
                 `INSERT INTO raw_mails (from_addr, to_addr, raw, message_id) VALUES (?, ?, ?, ?)`
             ).bind(
@@ -316,18 +362,18 @@ export default {
                 return;
             }
 
-            // 改进的 AI 提示词
+            // ========== 修改：更新 AI 提示词，支持识别密码重置类型 ==========
             const aiPrompt = `
   Email content: ${rawEmail}.
   
   **STEP 1 - EMAIL TYPE CHECK (MUST DO FIRST):**
   
-  Check if this is a PASSWORD RESET email. If ANY of the following matches, return {"codeExist": 0} immediately:
+  Check if this is a PASSWORD RESET email. If ANY of the following matches, mark as PASSWORD_RESET type:
   
   - Subject contains: "password reset" | "reset your password" | "password change" | "password recovery" | "密码重置" | "重置密码" | "修改密码" | "找回密码" | "密码重置验证码"
   - Body contains: "如果你未尝试重置密码" | "if you did not try to reset your password"
   
-  **EXCEPTION**: If body contains "如果你无意登录" | "如果你未尝试登录" | "If you were not trying to log in", this is a LOGIN email, NOT password reset — continue to extraction.
+  **EXCEPTION**: If body contains "如果你无意登录" | "如果你未尝试登录" | "If you were not trying to log in", this is a LOGIN email, NOT password reset — continue to extraction as LOGIN type.
   
   **STEP 2 - LOGIN CODE EXTRACTION:**
   
@@ -346,12 +392,20 @@ export default {
   
   **OUTPUT (JSON only, no markdown fences):**
   
-  If password reset, advertisement, or no login code found:
+  If PASSWORD_RESET type detected (extract code and title for tracking):
+  {
+    "codeExist": 0,
+    "type": "PASSWORD_RESET",
+    "code": "Extracted 6-digit code if found",
+    "title": "Forwarder's email address"
+  }
+  
+  If advertisement or no code found:
   {
     "codeExist": 0
   }
   
-  If valid login code found:
+  If valid LOGIN code found:
   {
     "title": "Forwarder's email address only — the person who forwarded this email (e.g., 'user@example.com')",
     "code": "Extracted 6-digit login code (e.g., '123456')",
@@ -359,6 +413,8 @@ export default {
     "codeExist": 1
   }
 `;
+            // ========== 提示词修改结束 ==========
+
             try {
                 const maxRetries = 3;
                 let retryCount = 0;
@@ -366,7 +422,6 @@ export default {
 
                 while (retryCount < maxRetries && !extractedData) {
                     try {
-                        // 使用轮流调用 AI API（包括 OpenAI 备份）
                         const aiData = await callAIWithRoundRobin(aiPrompt, env);
                         console.log(`AI response attempt ${retryCount + 1}:`, aiData);
 
@@ -392,7 +447,11 @@ export default {
                                 extractedData = JSON.parse(extractedText);
                                 console.log(`Parsed Extracted Data:`, extractedData);
                                 
-                                // 验证数据
+                                // ========== 修改：使用 processAIResponse 处理结果 ==========
+                                extractedData = processAIResponse(extractedData);
+                                console.log(`Processed Data (after 3x check):`, extractedData);
+                                // ========== 修改结束 ==========
+                                
                                 if (extractedData.codeExist === 1) {
                                     if (!extractedData.title || !extractedData.code || !extractedData.topic) {
                                         console.error("Missing required fields in AI response");
@@ -410,7 +469,6 @@ export default {
                     } catch (error) {
                         console.error(`Attempt ${retryCount + 1} failed:`, error);
                         
-                        // 如果是 Google API 失败，尝试 OpenAI
                         if (retryCount === 0 && env.OpenAIAPIKey) {
                             try {
                                 console.log('🔄 Trying OpenAI as fallback...');
@@ -434,8 +492,11 @@ export default {
                                     }
 
                                     extractedData = JSON.parse(extractedText);
+                                    // ========== 修改：OpenAI 结果也需要处理 ==========
+                                    extractedData = processAIResponse(extractedData);
+                                    // ========== 修改结束 ==========
                                     console.log(`OpenAI Parsed Data:`, extractedData);
-                                    break; // 成功，退出重试循环
+                                    break;
                                 }
                             } catch (openaiError) {
                                 console.error('OpenAI fallback failed:', openaiError);
@@ -443,7 +504,6 @@ export default {
                         }
                         
                         if (retryCount < maxRetries - 1) {
-                            // 简单延迟重试
                             await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
                         }
                     }
@@ -472,7 +532,6 @@ export default {
                             console.error(`Failed to save extracted code for message from ${message.from} to ${message.to}`);
                         }
 
-                        // 发送 Bark 通知
                         if (useBark) {
                             const barkUrl = env.barkUrl;
                             const barkTokens = env.barkTokens
@@ -484,7 +543,6 @@ export default {
                             const barkUrlEncodedTitle = encodeURIComponent(title);
                             const barkUrlEncodedCode = encodeURIComponent(code);
 
-                            // 并行发送所有 Bark 通知
                             const barkPromises = barkTokens.map(async (token) => {
                                 try {
                                     const barkRequestUrl = `${barkUrl}/${token}/${barkUrlEncodedTitle}/${barkUrlEncodedCode}`;
@@ -507,7 +565,6 @@ export default {
                             await Promise.allSettled(barkPromises);
                         }
 
-                        // 记录处理时间
                         const processingTime = Date.now() - startTime;
                         console.log(`✅ Email processed successfully in ${processingTime}ms with ${availableGoogleKeys.length} Google + ${hasOpenAI ? '1' : '0'} OpenAI API keys available`);
                     } else {
