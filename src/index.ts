@@ -5,7 +5,7 @@ created by: github@TooonyChen
 created on: 2024 Oct 07
 Last updated: 2024 Dec (Core version)
 Enhanced: 2025 Jan (API Rotation + OpenAI Backup)
-Updated: 2025 (Password Reset 3x Detection)
+Updated: 2025 (Password Reset 3x Detection - Database Version)
 */
 
 import indexHtml from './index.html';
@@ -24,44 +24,72 @@ export interface Env {
     UseBark: string;
 }
 
-// ========== 新增：密码重置验证码历史记录 ==========
-const passwordResetHistory: { [email: string]: { code: string; count: number } } = {};
+// ========== 修改：使用数据库存储密码重置历史 ==========
 
-// 新增：检查是否连续收到相同的密码重置验证码
-function checkPasswordResetRepeat(email: string, code: string): boolean {
-    if (!passwordResetHistory[email]) {
-        passwordResetHistory[email] = { code: code, count: 1 };
+// 检查是否连续收到相同的密码重置验证码（数据库版本）
+async function checkPasswordResetRepeat(db: D1Database, email: string, code: string): Promise<boolean> {
+    try {
+        // 查询现有记录
+        const existing = await db.prepare(
+            'SELECT code, count FROM password_reset_history WHERE email = ?'
+        ).bind(email).first();
+
+        if (!existing) {
+            // 新记录，插入
+            await db.prepare(
+                'INSERT INTO password_reset_history (email, code, count, updated_at) VALUES (?, ?, 1, CURRENT_TIMESTAMP)'
+            ).bind(email, code).run();
+            console.log(`🔒 Password reset for ${email}: new record, count: 1/3`);
+            return false;
+        }
+
+        if (existing.code === code) {
+            // 相同验证码，增加计数
+            const newCount = (existing.count as number) + 1;
+            await db.prepare(
+                'UPDATE password_reset_history SET count = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?'
+            ).bind(newCount, email).run();
+            console.log(`🔒 Password reset for ${email}: same code, count: ${newCount}/3`);
+            return newCount >= 3;
+        } else {
+            // 不同验证码，重置计数
+            await db.prepare(
+                'UPDATE password_reset_history SET code = ?, count = 1, updated_at = CURRENT_TIMESTAMP WHERE email = ?'
+            ).bind(code, email).run();
+            console.log(`🔒 Password reset for ${email}: different code, reset count: 1/3`);
+            return false;
+        }
+    } catch (error) {
+        console.error('Error checking password reset history:', error);
         return false;
     }
-    
-    if (passwordResetHistory[email].code === code) {
-        passwordResetHistory[email].count++;
-    } else {
-        passwordResetHistory[email] = { code: code, count: 1 };
-    }
-    
-    return passwordResetHistory[email].count >= 3;
 }
 
-// 新增：清除历史记录
-function clearPasswordResetHistory(email?: string): void {
-    if (email) {
-        delete passwordResetHistory[email];
-    } else {
-        Object.keys(passwordResetHistory).forEach(key => delete passwordResetHistory[key]);
+// 清除密码重置历史记录（数据库版本）
+async function clearPasswordResetHistory(db: D1Database, email?: string): Promise<void> {
+    try {
+        if (email) {
+            await db.prepare('DELETE FROM password_reset_history WHERE email = ?').bind(email).run();
+            console.log(`🗑️ Cleared password reset history for ${email}`);
+        } else {
+            await db.prepare('DELETE FROM password_reset_history').run();
+            console.log('🗑️ Cleared all password reset history');
+        }
+    } catch (error) {
+        console.error('Error clearing password reset history:', error);
     }
 }
 
-// 新增：处理AI返回结果，判断是否需要提取密码重置验证码
-function processAIResponse(result: any): any {
+// 处理AI返回结果（数据库版本）
+async function processAIResponse(db: D1Database, result: any): Promise<any> {
     // 如果是密码重置类型，检查是否连续3次
     if (result.type === "PASSWORD_RESET" && result.code && result.title) {
-        const shouldExtract = checkPasswordResetRepeat(result.title, result.code);
+        const shouldExtract = await checkPasswordResetRepeat(db, result.title, result.code);
         
         if (shouldExtract) {
             // 连续3次相同验证码，进行提取
-            console.log(`🔓 Password reset code repeated 3 times for ${result.title}, extracting...`);
-            clearPasswordResetHistory(result.title);
+            console.log(`🔓 Password reset code repeated 3 times for ${result.title}, extracting!`);
+            await clearPasswordResetHistory(db, result.title);
             return {
                 title: result.title,
                 code: result.code,
@@ -70,7 +98,6 @@ function processAIResponse(result: any): any {
             };
         } else {
             // 未达到3次，不提取
-            console.log(`🔒 Password reset code for ${result.title}, count: ${passwordResetHistory[result.title]?.count || 1}/3`);
             return { codeExist: 0 };
         }
     }
@@ -78,7 +105,8 @@ function processAIResponse(result: any): any {
     // 其他情况直接返回原结果
     return result;
 }
-// ========== 新增部分结束 ==========
+
+// ========== 数据库版本结束 ==========
 
 // HTML 转义函数
 function escapeHtml(text: string): string {
@@ -116,7 +144,7 @@ function getAvailableAPIKeys(env: Env): string[] {
     return keys;
 }
 
-// 获取下一个要使用的API Key索引（基于时间轮换，无需数据库表）
+// 获取下一个要使用的API Key索引
 function getNextKeyIndex(totalKeys: number): number {
     const minutesSinceEpoch = Math.floor(Date.now() / (1000 * 60));
     return minutesSinceEpoch % totalKeys;
@@ -258,6 +286,7 @@ async function tryOtherGoogleKeys(prompt: string, apiKeys: string[], excludeInde
 export default {
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
         try {
+            // 自动清理过期验证码
             const cleanupResult = await env.DB.prepare(
                 `DELETE FROM code_mails WHERE datetime(created_at) < datetime('now', '-10 minutes')`
             ).run();
@@ -265,6 +294,12 @@ export default {
             if (cleanupResult.meta.changes > 0) {
                 console.log(`Auto cleaned ${cleanupResult.meta.changes} expired codes`);
             }
+
+            // ========== 新增：清理过期的密码重置历史（超过30分钟） ==========
+            await env.DB.prepare(
+                `DELETE FROM password_reset_history WHERE datetime(updated_at) < datetime('now', '-30 minutes')`
+            ).run();
+            // ========== 新增结束 ==========
             
             const { results } = await env.DB.prepare(
                 'SELECT from_org, to_addr, topic, code, created_at FROM code_mails ORDER BY created_at DESC'
@@ -362,7 +397,6 @@ export default {
                 return;
             }
 
-            // ========== 修改：更新 AI 提示词，支持识别密码重置类型 ==========
             const aiPrompt = `
   Email content: ${rawEmail}.
   
@@ -392,12 +426,12 @@ export default {
   
   **OUTPUT (JSON only, no markdown fences):**
   
-  If PASSWORD_RESET type detected (extract code and title for tracking):
+  If PASSWORD_RESET type detected (MUST extract code and title for tracking):
   {
     "codeExist": 0,
     "type": "PASSWORD_RESET",
-    "code": "Extracted 6-digit code if found",
-    "title": "Forwarder's email address"
+    "code": "The 6-digit verification code from the email",
+    "title": "Forwarder's email address (from Resent-From header)"
   }
   
   If advertisement or no code found:
@@ -413,7 +447,6 @@ export default {
     "codeExist": 1
   }
 `;
-            // ========== 提示词修改结束 ==========
 
             try {
                 const maxRetries = 3;
@@ -447,8 +480,8 @@ export default {
                                 extractedData = JSON.parse(extractedText);
                                 console.log(`Parsed Extracted Data:`, extractedData);
                                 
-                                // ========== 修改：使用 processAIResponse 处理结果 ==========
-                                extractedData = processAIResponse(extractedData);
+                                // ========== 修改：使用数据库版本的 processAIResponse ==========
+                                extractedData = await processAIResponse(env.DB, extractedData);
                                 console.log(`Processed Data (after 3x check):`, extractedData);
                                 // ========== 修改结束 ==========
                                 
@@ -492,8 +525,8 @@ export default {
                                     }
 
                                     extractedData = JSON.parse(extractedText);
-                                    // ========== 修改：OpenAI 结果也需要处理 ==========
-                                    extractedData = processAIResponse(extractedData);
+                                    // ========== 修改：OpenAI 结果也使用数据库版本 ==========
+                                    extractedData = await processAIResponse(env.DB, extractedData);
                                     // ========== 修改结束 ==========
                                     console.log(`OpenAI Parsed Data:`, extractedData);
                                     break;
@@ -566,7 +599,7 @@ export default {
                         }
 
                         const processingTime = Date.now() - startTime;
-                        console.log(`✅ Email processed successfully in ${processingTime}ms with ${availableGoogleKeys.length} Google + ${hasOpenAI ? '1' : '0'} OpenAI API keys available`);
+                        console.log(`✅ Email processed successfully in ${processingTime}ms`);
                     } else {
                         console.log("ℹ️ No login verification code found in this email.");
                     }
