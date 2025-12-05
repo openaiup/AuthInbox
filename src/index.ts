@@ -4,7 +4,7 @@ This is the main file for the Auth Inbox Email Worker.
 created by: github@TooonyChen
 created on: 2024 Oct 07
 Last updated: 2024 Dec (Core version)
-Updated: 2025 (GPT-4o-mini Only + Password Reset 3x Detection)
+Updated: 2025 (GPT-4o-mini Only + Password Reset 3x Detection v3)
 */
 
 import indexHtml from './index.html';
@@ -74,7 +74,7 @@ async function processAIResponse(db: D1Database, result: any): Promise<any> {
     
     console.log(`🔍 Type: ${emailType}, Code: ${code}, Email: ${title}`);
     
-    // 密码重置类型
+    // 密码重置类型 - 需要连续3次才提取
     if (emailType === "PASSWORD_RESET") {
         if (!code || !title) {
             console.log(`⚠️ PASSWORD_RESET but missing code (${code}) or title (${title}), skipping...`);
@@ -97,7 +97,7 @@ async function processAIResponse(db: D1Database, result: any): Promise<any> {
         }
     }
     
-    // 登录类型
+    // 登录类型 - 每次都提取
     if (emailType === "LOGIN") {
         if (!code || !title) {
             console.log(`⚠️ LOGIN but missing code (${code}) or title (${title}), skipping...`);
@@ -155,7 +155,7 @@ async function callOpenAI(prompt: string, apiKey: string): Promise<any> {
             messages: [
                 {
                     role: 'system',
-                    content: 'You are a JSON extractor. Always respond with valid JSON only, no markdown, no explanation.'
+                    content: 'You are a JSON extractor. Extract information from emails and respond with valid JSON only. No markdown, no explanation.'
                 },
                 {
                     role: 'user',
@@ -163,7 +163,7 @@ async function callOpenAI(prompt: string, apiKey: string): Promise<any> {
                 }
             ],
             temperature: 0,
-            max_tokens: 200
+            max_tokens: 300
         })
     });
 
@@ -293,19 +293,40 @@ export default {
                 return;
             }
 
-            // GPT-4o-mini 优化的提示词
-            const aiPrompt = `Extract from this email:
+            // GPT-4o-mini 优化的提示词 - v3 修复版
+            const aiPrompt = `Analyze this forwarded email and extract verification code information.
 
-EMAIL:
+RAW EMAIL:
 ${rawEmail}
 
-RULES:
-1. emailType: "LOGIN" if contains "如果你无意登录" or "Log-in Code" or "suspicious log-in" or "登录验证码". "PASSWORD_RESET" if contains "密码重置" or "重置密码" or "如果你未尝试重置密码". Otherwise "OTHER".
-2. code: The 6-digit number from email body.
-3. forwarderEmail: Email address from "Resent-From:" header only (not "From:" header).
+CLASSIFICATION RULES (check in order):
+
+1. **LOGIN** email (extract every time) - if ANY of these found:
+   - "Log-in Code" or "login code" in body
+   - "suspicious log-in" or "suspicious login" in body
+   - "If you were not trying to log in" in body
+   - "如果你无意登录" or "如果你未尝试登录" in body
+   - Subject contains "code is" WITHOUT "密码" or "password reset"
+   - Subject contains "代码为" WITHOUT "密码"
+
+2. **PASSWORD_RESET** email (need 3x to extract) - if ANY of these found:
+   - Subject contains "密码重置验证码" or "密码重置"
+   - "如果你未尝试重置密码" in body
+   - "if you did not try to reset your password" in body
+   - "password reset" in subject
+
+3. **OTHER** - if neither LOGIN nor PASSWORD_RESET
+
+EXTRACT:
+- code: The 6-digit number (e.g., 134775, 398743)
+- forwarderEmail: Email from outer "From:" header (the hotmail/outlook address that forwarded, e.g., ndkrxrj2be@hotmail.com)
 
 Return JSON only:
-{"emailType":"TYPE","code":"123456","forwarderEmail":"user@example.com"}`;
+{"emailType":"LOGIN or PASSWORD_RESET or OTHER","code":"123456","forwarderEmail":"user@example.com"}
+
+Examples:
+- Subject "Your ChatGPT code is 134775" + body has "Log-in Code" + "suspicious log-in" → {"emailType":"LOGIN","code":"134775","forwarderEmail":"ndkrxrj2be@hotmail.com"}
+- Subject "密码重置验证码为 398743" + body has "如果你未尝试重置密码" → {"emailType":"PASSWORD_RESET","code":"398743","forwarderEmail":"ndkrxrj2be@hotmail.com"}`;
 
             try {
                 const maxRetries = 3;
